@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--perceptual-loss-factor', type=float, default=1., help='Weighting factor for perceptual loss.')
 
     args = parser.parse_args()
-    args.dataset_path = r"../data"
+    args.dataset_path = r"../data" # New dataset path
 
     train_vqgan = TrainVQGAN(args)
 
