@@ -1,49 +1,41 @@
-import os
-import albumentations
 import numpy as np
+import seaborn as sns
+import torch
 import torch.nn as nn
-from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
 
 
 # --------------------------------------------- #
 #                  Data Utils
 # --------------------------------------------- #
+    
+# Now loads in the full dataset with conditions
+def get_data(args):
+    x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(-1, args.image_channels, args.image_size, args.image_size)
+    c_orig = torch.from_numpy(np.load(args.conditions_path).astype(np.float32))
+    c, means, stds = normalize(c_orig)
 
-class ImagePaths(Dataset):
-    def __init__(self, path, size=None):
-        self.size = size
-
-        self.images = [os.path.join(path, file) for file in os.listdir(path)]
-        self._length = len(self.images)
-
-        self.rescaler = albumentations.SmallestMaxSize(max_size=self.size)
-        self.cropper = albumentations.CenterCrop(height=self.size, width=self.size)
-        self.preprocessor = albumentations.Compose([self.rescaler, self.cropper])
-
-    def __len__(self):
-        return self._length
-
-    def preprocess_image(self, image_path):
-        image = Image.open(image_path)
-        if not image.mode == "RGB":
-            image = image.convert("RGB")
-        image = np.array(image).astype(np.uint8)
-        image = self.preprocessor(image=image)["image"]
-        image = (image / 127.5 - 1.0).astype(np.float32)
-        image = image.transpose(2, 0, 1)
-        return image
-
-    def __getitem__(self, i):
-        example = self.preprocess_image(self.images[i])
-        return example
+    generator = torch.Generator().manual_seed(0)
+    train_data, test_data = random_split(TensorDataset(x, c), [0.75, 0.25], generator=generator)
+    dataloader, test_dataloader = load_data(args, train_data, test_data, generator)
+    
+    return dataloader, test_dataloader, means, stds
 
 
-def load_data(args):
-    train_data = ImagePaths(args.dataset_path, size=256)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False)
-    return train_loader
+# Now adds in test dataset
+def load_data(args, train_data, test_data, g):
+    dataloader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, generator=g)
+    test_dataloader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, generator=g)
+    return dataloader, test_dataloader
+
+
+# Did not exist in original code (not conditional)
+def normalize(data):
+    means = torch.mean(data, dim=0)
+    stds = torch.std(data, dim=0)
+    return (data-means)/stds, list(means.numpy()), list(stds.numpy())
 
 
 # --------------------------------------------- #
@@ -60,15 +52,39 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def plot_images(images):
-    x = images["input"]
-    reconstruction = images["rec"]
-    half_sample = images["half_sample"]
-    full_sample = images["full_sample"]
+def mirror(data, dim=-1, reshape=None, difference=False):
+    while len(data.shape) < 4:
+        data = data.unsqueeze(0)
+    new = torch.cat((data, torch.flip(data, (dim,))), dim)
+    if reshape is not None:
+        if difference:
+            new = torch.clamp(F.interpolate(new, reshape, mode='bicubic'), -1, 1)
+        else:
+            new = torch.clamp(F.interpolate(new, reshape, mode='bicubic'), 0, 1)
+    return new
 
-    fig, axarr = plt.subplots(1, 4)
-    axarr[0].imshow(x.cpu().detach().numpy()[0].transpose(1, 2, 0))
-    axarr[1].imshow(reconstruction.cpu().detach().numpy()[0].transpose(1, 2, 0))
-    axarr[2].imshow(half_sample.cpu().detach().numpy()[0].transpose(1, 2, 0))
-    axarr[3].imshow(full_sample.cpu().detach().numpy()[0].transpose(1, 2, 0))
-    plt.show()
+
+def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cmap=None, cbar=True, fontsize=20):
+    L = len(titles)
+    fig, axs = plt.subplots(1, L, figsize=(int(5*L), 4))
+    [ax.axes.xaxis.set_visible(False) for ax in axs]
+    [ax.axes.yaxis.set_visible(False) for ax in axs]
+    plt.rcParams['savefig.dpi'] = dpi
+    plt.rcParams["figure.dpi"] = dpi
+
+    for idx, (figure, title, current_range) in enumerate(zip(data, titles, ranges)):
+        if mirror_image:
+            figure = np.array(mirror(torch.tensor(figure), reshape=(400, 400), difference=(title=="Difference")))[0]
+        if title == "Difference":
+            sns.heatmap(ax=axs[idx], data=figure[0], cbar=cbar, vmin=current_range[0], vmax=current_range[1], center=0, cmap="RdBu_r")
+        else:
+            sns.heatmap(ax=axs[idx], data=figure[0], cbar=cbar, vmin=current_range[0], vmax=current_range[1], cmap=cmap)
+        axs[idx].set_title(title, fontsize=fontsize)
+    if fname is None:
+        plt.show()
+    else:
+        plt.savefig(fname, bbox_inches="tight", transparent=True)
+        fig.clear()
+        plt.close(fig)
+        del(fig)
+        del(axs)
