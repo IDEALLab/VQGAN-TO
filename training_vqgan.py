@@ -52,7 +52,7 @@ class TrainVQGAN:
         # Logging
         run_name = f"{args.problem_id}__{args.algo}__{args.seed}__{int(time.time())}"
         if args.track:
-            wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args), save_code=True, name=run_name, dir=wandb_dir)
+            wandb.init(settings=wandb.Settings(mode=args.wandb_online), project=args.wandb_project, entity=args.wandb_entity, config=vars(args), save_code=True, name=run_name, dir=wandb_dir)
 
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     parser.add_argument('--image-channels', type=int, default=1, help='Number of channels of images (default: 3)')
     parser.add_argument('--dataset-path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: /data)') # New dataset path
     parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
-    parser.add_argument('--batch-size', type=int, default=6, help='Input batch size for training (default: 6)')
+    parser.add_argument('--batch-size', type=int, default=16, help='Input batch size for training (default: 6)')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
     parser.add_argument('--learning-rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
     parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
@@ -181,6 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
     parser.add_argument('--track', type=bool, default=True, help='track with wandb or not (default: True)')
+    parser.add_argument('--wandb-online', type=str, default="offline", help='WandB online mode (default: online)')
     parser.add_argument('--wandb-project', type=str, default='vqgan', help='WandB project name (default: vqgan)')
     parser.add_argument('--wandb-entity', type=str, default=None, help='WandB entity name (default: None)')
     parser.add_argument('--save_model', type=bool, default=False, help='Save model checkpoint (default: True)')
