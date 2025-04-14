@@ -21,7 +21,7 @@ sd=~/scratch/VQGAN/saves/$runname
 
 mkdir -p "$sd"
 
-# === Load modules ===
+# === Make sure to unload python to prevent conflict with default installed packages on HPC ===
 module unload python
 
 # === Activate virtual environment ===
@@ -37,6 +37,4 @@ cd "$wd" || {
 }
 
 # === Run training ===
-echo "✅ Starting training at $(date)" | tee "$sd/runlog.txt"
-python training_vqgan.py > "$sd/output.txt" 2>&1
-echo "✅ Finished training at $(date)" >> "$sd/runlog.txt"
+python training_vqgan.py --run-name "$runname" > "$sd/output.txt" 2>&1

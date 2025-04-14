@@ -1,20 +1,19 @@
 import os
+import sys
 import argparse
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm
-import time
+from matplotlib import pyplot as plt
+from datetime import datetime
 import torch
 import torch.nn.functional as F
+from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
 from utils import get_data, weights_init, plot_data
 import wandb
-
-results_dir = r"../results"
-checkpoints_dir = r"../checkpoints"
-wandb_dir = r"../wandb"
 
 class TrainVQGAN:
     def __init__(self, args):
@@ -23,6 +22,17 @@ class TrainVQGAN:
         self.discriminator.apply(weights_init)
         self.perceptual_loss = LPIPS().eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
+        self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': []}
+
+        saves_dir = os.path.join(r"../saves", args.run_name)
+        self.results_dir = os.path.join(saves_dir, "results")
+        self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
+        self.wandb_dir = os.path.join(saves_dir, "wandb")
+        self.saves_dir = saves_dir
+
+        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
+            self.vqgan = torch.compile(self.vqgan)
+            self.discriminator = torch.compile(self.discriminator)
 
         self.prepare_training()
 
@@ -43,23 +53,28 @@ class TrainVQGAN:
 
         return opt_vq, opt_disc
 
-    @staticmethod
-    def prepare_training():
-        os.makedirs(results_dir, exist_ok=True)
-        os.makedirs(checkpoints_dir, exist_ok=True)
+    def prepare_training(self):
+        os.makedirs(self.saves_dir, exist_ok=True)
+        os.makedirs(self.results_dir, exist_ok=True)
+        os.makedirs(self.checkpoints_dir, exist_ok=True)
+        os.makedirs(self.wandb_dir, exist_ok=True)
 
     def train(self, args):
         # Logging
-        run_name = f"{args.problem_id}__{args.algo}__{args.seed}__{int(time.time())}"
+        wandb_name = f"{args.problem_id}__{args.algo}__{args.seed}__{args.run_name}"
         if args.track:
-            wandb.init(settings=wandb.Settings(mode=args.wandb_online), project=args.wandb_project, entity=args.wandb_entity, config=vars(args), save_code=True, name=run_name, dir=wandb_dir)
+            wandb.init(settings=wandb.Settings(mode=args.wandb_online), project=args.wandb_project, entity=args.wandb_entity, config=vars(args), save_code=True, name=wandb_name, dir=self.wandb_dir)
+
+        scaler = GradScaler()
 
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
         for epoch in tqdm(range(args.epochs)):
-            with tqdm(range(steps_per_epoch)) as pbar:
-                for i, (imgs, c) in enumerate(dataloader):
-                    imgs = imgs.to(device=args.device)
+            epoch_d_losses = []
+            epoch_g_losses = []
+            for i, (imgs, c) in enumerate(dataloader):
+                imgs = imgs.to(device=args.device, non_blocking=True)
+                with autocast(device_type=args.device, dtype=torch.float16):
                     decoded_images, _, q_loss = self.vqgan(imgs)
 
                     disc_real = self.discriminator(imgs)
@@ -81,84 +96,121 @@ class TrainVQGAN:
                     gan_loss = disc_factor * 0.5*(d_loss_real + d_loss_fake)
 
                     self.opt_vq.zero_grad()
-                    vq_loss.backward(retain_graph=True)
+                    scaler.scale(vq_loss).backward(retain_graph=True)
 
                     self.opt_disc.zero_grad()
-                    gan_loss.backward()
+                    scaler.scale(gan_loss).backward()
 
-                    self.opt_vq.step()
-                    self.opt_disc.step()
+                    scaler.step(self.opt_vq)
+                    scaler.step(self.opt_disc)
+                    scaler.update()
 
-                    if args.track:
-                        batches_done = epoch * len(dataloader) + i
+                    epoch_d_losses.append(gan_loss.item())
+                    epoch_g_losses.append(vq_loss.item())
 
-                        wandb.log(
-                            {
-                                "d_loss": gan_loss.item(),
-                                "g_loss": vq_loss.item(),
+                if args.track:
+                    batches_done = epoch * len(dataloader) + i
+
+                    wandb.log(
+                        {
+                            "d_loss": gan_loss.item(),
+                            "g_loss": vq_loss.item(),
+                            "epoch": epoch,
+                            "batch": batches_done,
+                        }
+                    )
+                    print(
+                        f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(dataloader)}] [D loss: {gan_loss.item()}] [G loss: {vq_loss.item()}]"
+                    )
+
+                    # This saves images of real vs. generated designs every sample_interval
+                    if batches_done % args.sample_interval == 0:
+                        combined = np.stack([
+                            decoded_images[-1].cpu().detach().numpy(), 
+                            imgs[-1].cpu().detach().numpy()
+                        ])
+                        img_fname = os.path.join(self.results_dir, f"{batches_done}.png")
+                        # img_fname = os.path.join(self.results_dir, f"{batches_done}.tiff")
+
+                        plot_data(
+                            combined, 
+                            titles = ['Reconstruction', 'Real'], 
+                            ranges = [[0, 1], [0, 1]], 
+                            fname = img_fname,
+                            cbar = False, 
+                            dpi = 400, 
+                            mirror_image = True, 
+                            cmap = sns.color_palette("viridis", as_cmap=True), 
+                            fontsize = 20
+                        )
+                        
+                        wandb.log({"designs": wandb.Image(img_fname)})
+
+                        # --------------
+                        #  Save models
+                        # --------------
+                        if args.save_model:
+                            ckpt_gen = {
                                 "epoch": epoch,
-                                "batch": batches_done,
+                                "batches_done": batches_done,
+                                "generator": self.vqgan.state_dict(),
+                                "optimizer_generator": self.opt_vq.state_dict(),
+                                "loss": vq_loss.item(),
                             }
-                        )
-                        print(
-                            f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(dataloader)}] [D loss: {gan_loss.item()}] [G loss: {vq_loss.item()}]"
-                        )
+                            ckpt_disc = {
+                                "epoch": epoch,
+                                "batches_done": batches_done,
+                                "discriminator": self.discriminator.state_dict(),
+                                "optimizer_discriminator": self.opt_disc.state_dict(),
+                                "loss": gan_loss.item(),
+                            }
 
-                        pbar.set_postfix(
-                            VQ_Loss = np.round(vq_loss.cpu().detach().numpy().item(), 5),
-                            GAN_Loss = np.round(gan_loss.cpu().detach().numpy().item(), 5)
-                        )
+                            torch.save(ckpt_gen, os.path.join(self.checkpoints_dir, "vqgan.pth"))
+                            torch.save(ckpt_disc, os.path.join(self.checkpoints_dir, "disc.pth"))
+                            artifact_gen = wandb.Artifact(f"{args.algo}_generator", type="model")
+                            artifact_gen.add_file(os.path.join(self.checkpoints_dir, "vqgan.pth"))
+                            artifact_disc = wandb.Artifact(f"{args.algo}_discriminator", type="model")
+                            artifact_disc.add_file(os.path.join(self.checkpoints_dir, "disc.pth"))
 
-                        # This saves a grid image of 25 generated designs every sample_interval
-                        if batches_done % args.sample_interval == 0:
-                            combined = np.stack([
-                                decoded_images[-1].cpu().detach().numpy(), 
-                                imgs[-1].cpu().detach().numpy()
-                            ])
-                            img_fname = os.path.join(results_dir, f"{batches_done}.png")
-
-                            plot_data(
-                                combined, 
-                                titles = ['Reconstruction', 'Real'], 
-                                ranges = [[0, 1], [0, 1]], 
-                                fname = img_fname,
-                                cbar = False, 
-                                dpi = 400, 
-                                mirror_image = True, 
-                                cmap = sns.color_palette("viridis", as_cmap=True), 
-                                fontsize = 20
-                            )
-                            
-                            wandb.log({"designs": wandb.Image(img_fname)})
-
-                            # --------------
-                            #  Save models
-                            # --------------
-                            if args.save_model:
-                                ckpt_gen = {
-                                    "epoch": epoch,
-                                    "batches_done": batches_done,
-                                    "generator": self.vqgan.state_dict(),
-                                    "optimizer_generator": self.opt_vq.state_dict(),
-                                    "loss": vq_loss.item(),
-                                }
-                                ckpt_disc = {
-                                    "epoch": epoch,
-                                    "batches_done": batches_done,
-                                    "discriminator": self.discriminator.state_dict(),
-                                    "optimizer_discriminator": self.opt_disc.state_dict(),
-                                    "loss": gan_loss.item(),
-                                }
-
-                                torch.save(ckpt_gen, os.path.join(checkpoints_dir, "vqgan.pth"))
-                                torch.save(ckpt_disc, os.path.join(checkpoints_dir, "disc.pth"))
-                                artifact_gen = wandb.Artifact(f"{args.algo}_generator", type="model")
-                                artifact_gen.add_file(os.path.join(checkpoints_dir, "vqgan.pth"))
-                                artifact_disc = wandb.Artifact(f"{args.algo}_discriminator", type="model")
-                                artifact_disc.add_file(os.path.join(checkpoints_dir, "disc.pth"))
-
-                                wandb.log_artifact(artifact_gen, aliases=[f"seed_{args.seed}"])
-                                wandb.log_artifact(artifact_disc, aliases=[f"seed_{args.seed}"])
+                            wandb.log_artifact(artifact_gen, aliases=[f"seed_{args.seed}"])
+                            wandb.log_artifact(artifact_disc, aliases=[f"seed_{args.seed}"])
+            
+            if args.track and args.wandb_online == "offline":
+                # Calculate average losses for this epoch
+                d_loss_avg = sum(epoch_d_losses) / len(epoch_d_losses)
+                g_loss_avg = sum(epoch_g_losses) / len(epoch_g_losses)
+                
+                # Track epoch averages
+                self.log_losses['epochs'].append(epoch)
+                self.log_losses['d_loss_avg'].append(np.log(d_loss_avg))
+                self.log_losses['g_loss_avg'].append(np.log(g_loss_avg))
+                
+                # Plot and save losses
+                plt.figure(figsize=(10, 5))
+                plt.plot(self.log_losses['epochs'], self.log_losses['d_loss_avg'], label='D. Log-Loss')
+                plt.plot(self.log_losses['epochs'], self.log_losses['g_loss_avg'], label='G. Log-Loss')
+                plt.xlabel('Epochs')
+                plt.ylabel('Average Loss')
+                plt.title('Training Losses Per Epoch')
+                plt.legend()
+                plt.grid(True)
+                
+                # Save the figure with a fixed name (overwriting previous versions)
+                # loss_fname = os.path.join(self.results_dir, "log_loss.eps")
+                # plt.savefig(loss_fname, format="eps", dpi=600, bbox_inches="tight", facecolor="white")
+                loss_fname = os.path.join(self.results_dir, "log_loss.png")
+                plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
+                plt.close()
+                
+                # Convert dictionary to arrays for proper numpy saving
+                loss_data = np.array([
+                    self.log_losses['epochs'],
+                    self.log_losses['d_loss_avg'],
+                    self.log_losses['g_loss_avg']
+                ])
+                
+                # Save the loss data with a fixed name (overwriting previous versions)
+                np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
 
         wandb.finish()
 
@@ -190,8 +242,9 @@ if __name__ == '__main__':
     parser.add_argument('--wandb-online', type=str, default="offline", help='WandB online mode (default: online)')
     parser.add_argument('--wandb-project', type=str, default='vqgan', help='WandB project name (default: vqgan)')
     parser.add_argument('--wandb-entity', type=str, default=None, help='WandB entity name (default: None)')
-    parser.add_argument('--save_model', type=bool, default=False, help='Save model checkpoint (default: True)')
-    parser.add_argument('--sample_interval', type=int, default=3440, help='Interval for saving sample images (default: 1000)')
+    parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
+    parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
+    parser.add_argument('--run-name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # TODO: Add arguments for encoder/decoder channel sizes, other options as in previous implementation
 

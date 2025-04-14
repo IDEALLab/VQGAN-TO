@@ -83,7 +83,16 @@ def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cma
     if fname is None:
         plt.show()
     else:
-        plt.savefig(fname, bbox_inches="tight", transparent=True)
+        if fname.endswith(".eps"):
+            # For vector graphics — high DPI, white background
+            plt.savefig(fname, format="eps", dpi=600, bbox_inches="tight", facecolor="white")
+        elif fname.endswith(".tiff") or fname.endswith(".tif"):
+            # For raster images — no transparency, white background
+            plt.savefig(fname, format="tiff", dpi=300, bbox_inches="tight", facecolor="white")
+        else:
+            # For formats like PNG or PDF — allow transparency
+            plt.savefig(fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
+
         fig.clear()
         plt.close(fig)
         del(fig)
