@@ -4,12 +4,11 @@
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
 #SBATCH -N 1
 #SBATCH -n 16
-#SBATCH -t 24:00:00
+#SBATCH -t 06:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
-#SBATCH --gpus=a100:1
+#SBATCH --gpus=h100:1
 #SBATCH --mail-user=adrake17@umd.edu
-#SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 
 # === Load environment ===
