@@ -12,8 +12,7 @@ from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data
-import wandb
+from utils import get_data, weights_init, plot_data 
 
 class TrainVQGAN:
     def __init__(self, args):
@@ -27,7 +26,6 @@ class TrainVQGAN:
         saves_dir = os.path.join(r"../saves", args.run_name)
         self.results_dir = os.path.join(saves_dir, "results")
         self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
-        self.wandb_dir = os.path.join(saves_dir, "wandb")
         self.saves_dir = saves_dir
 
         if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
@@ -57,18 +55,12 @@ class TrainVQGAN:
         os.makedirs(self.saves_dir, exist_ok=True)
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
-        os.makedirs(self.wandb_dir, exist_ok=True)
 
     def train(self, args):
-        # Logging
-        wandb_name = f"{args.problem_id}__{args.algo}__{args.seed}__{args.run_name}"
-        if args.track:
-            wandb.init(settings=wandb.Settings(mode=args.wandb_online), project=args.wandb_project, entity=args.wandb_entity, config=vars(args), save_code=True, name=wandb_name, dir=self.wandb_dir)
-
         scaler = GradScaler()
-
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
+        
         for epoch in tqdm(range(args.epochs)):
             epoch_d_losses = []
             epoch_g_losses = []
@@ -111,14 +103,6 @@ class TrainVQGAN:
                 if args.track:
                     batches_done = epoch * len(dataloader) + i
 
-                    wandb.log(
-                        {
-                            "d_loss": gan_loss.item(),
-                            "g_loss": vq_loss.item(),
-                            "epoch": epoch,
-                            "batch": batches_done,
-                        }
-                    )
                     print(
                         f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(dataloader)}] [D loss: {gan_loss.item()}] [G loss: {vq_loss.item()}]"
                     )
@@ -143,8 +127,6 @@ class TrainVQGAN:
                             cmap = sns.color_palette("viridis", as_cmap=True), 
                             fontsize = 20
                         )
-                        
-                        wandb.log({"designs": wandb.Image(img_fname)})
 
                         # --------------
                         #  Save models
@@ -167,15 +149,8 @@ class TrainVQGAN:
 
                             torch.save(ckpt_gen, os.path.join(self.checkpoints_dir, "vqgan.pth"))
                             torch.save(ckpt_disc, os.path.join(self.checkpoints_dir, "disc.pth"))
-                            artifact_gen = wandb.Artifact(f"{args.algo}_generator", type="model")
-                            artifact_gen.add_file(os.path.join(self.checkpoints_dir, "vqgan.pth"))
-                            artifact_disc = wandb.Artifact(f"{args.algo}_discriminator", type="model")
-                            artifact_disc.add_file(os.path.join(self.checkpoints_dir, "disc.pth"))
-
-                            wandb.log_artifact(artifact_gen, aliases=[f"seed_{args.seed}"])
-                            wandb.log_artifact(artifact_disc, aliases=[f"seed_{args.seed}"])
             
-            if args.track and args.wandb_online == "offline":
+            if args.track:
                 # Calculate average losses for this epoch
                 d_loss_avg = sum(epoch_d_losses) / len(epoch_d_losses)
                 g_loss_avg = sum(epoch_g_losses) / len(epoch_g_losses)
@@ -212,8 +187,6 @@ class TrainVQGAN:
                 # Save the loss data with a fixed name (overwriting previous versions)
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
 
-        wandb.finish()
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VQGAN")
     parser.add_argument('--latent-dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
@@ -238,10 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--problem-id', type=str, default='mto', help='Problem ID (default: mto)')
     parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
-    parser.add_argument('--track', type=bool, default=True, help='track with wandb or not (default: True)')
-    parser.add_argument('--wandb-online', type=str, default="offline", help='WandB online mode (default: online)')
-    parser.add_argument('--wandb-project', type=str, default='vqgan', help='WandB project name (default: vqgan)')
-    parser.add_argument('--wandb-entity', type=str, default=None, help='WandB entity name (default: None)')
+    parser.add_argument('--track', type=bool, default=True, help='track or not (default: True)')
     parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
     parser.add_argument('--run-name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
