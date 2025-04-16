@@ -6,10 +6,12 @@ import seaborn as sns
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.amp import autocast
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data
+from utils import get_data, plot_data, print_args, FocalLoss
 
 class EvalVQGAN:
     def __init__(self, args):
@@ -53,7 +55,7 @@ class EvalVQGAN:
             for k, v in preserved_values.items():
                 setattr(args, k, v)
                 
-            print(f"Updated arguments from training: latent_dim={args.latent_dim}, num_codebook_vectors={args.num_codebook_vectors}")
+            print_args(args, "Updated Evaluation Arguments")
         else:
             print(f"Warning: Training arguments not found at {training_args_path}. Using provided evaluation arguments.")
     
@@ -90,6 +92,7 @@ class EvalVQGAN:
         metrics = {
             'mse': [],
             'mae': [],
+            'focal_loss': [],
             'lpips': [],
             'codebook_usage': {}
         }
@@ -109,10 +112,12 @@ class EvalVQGAN:
                     # Calculate metrics
                     mse = torch.mean((imgs - decoded_images) ** 2).item()
                     mae = torch.mean(torch.abs(imgs - decoded_images)).item()
+                    focal_loss = FocalLoss()(decoded_images, imgs).item()
                     lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
                     
                     metrics['mse'].append(mse)
                     metrics['mae'].append(mae)
+                    metrics['focal_loss'].append(focal_loss)
                     metrics['lpips'].append(lpips_value)
                     
                     # Track codebook usage
@@ -134,11 +139,13 @@ class EvalVQGAN:
         # Calculate and print average metrics
         avg_mse = np.mean(metrics['mse'])
         avg_mae = np.mean(metrics['mae'])
+        avg_focal_loss = np.mean(metrics['focal_loss'])
         avg_lpips = np.mean(metrics['lpips'])
         
         print(f"Evaluation Results:")
         print(f"Average MSE: {avg_mse:.6f}")
         print(f"Average MAE: {avg_mae:.6f}")
+        print(f"Average Focal Loss: {avg_focal_loss:.6f}")
         print(f"Average LPIPS: {avg_lpips:.6f}")
         
         # Calculate codebook usage statistics
@@ -151,6 +158,7 @@ class EvalVQGAN:
         metrics_summary = {
             'avg_mse': avg_mse,
             'avg_mae': avg_mae,
+            'avg_focal_loss': avg_focal_loss,
             'avg_lpips': avg_lpips,
             'active_codes': active_codes,
             'total_codes': args.num_codebook_vectors,
@@ -219,6 +227,25 @@ if __name__ == '__main__':
     parser.add_argument('--problem-id', type=str, default='mto', help='Problem ID (default: mto)')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
     parser.add_argument('--test-split', type=float, default=0.1, help='Fraction of data to use for testing (default: 0.1)')
+
+    # Decoder-specific args
+    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
+    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
+    parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
+    parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
+
+    # Encoder-specific args
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
+    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
+    parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
+    parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
+
+    # Evaluation-specific args
+    parser.add_argument('--use_focal_loss', type=bool, default=False, help='Use Focal Loss for training (default: False)')
+    parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
+    parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
     
     args = parser.parse_args()
+    print_args(args, "Initial Evaluation Arguments")
     eval_vqgan = EvalVQGAN(args)

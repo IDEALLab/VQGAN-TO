@@ -7,9 +7,26 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
 
 
-# --------------------------------------------- #
-#                  Data Utils
-# --------------------------------------------- #
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2.0, alpha=0.25, reduction='mean'):
+        super().__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+
+    def forward(self, input, target, eps=1e-6):
+        input = input.clamp(eps, 1. - eps)
+        target = target.clamp(eps, 1. - eps)
+
+        pt = torch.where(target >= 0.5, input, 1 - input)
+        loss = -self.alpha * (1 - pt) ** self.gamma * pt.log()
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        return loss
+    
     
 # Now loads in the full dataset with conditions
 def get_data(args):
@@ -37,11 +54,6 @@ def normalize(data):
     stds = torch.std(data, dim=0)
     return (data-means)/stds, list(means.numpy()), list(stds.numpy())
 
-
-# --------------------------------------------- #
-#                  Module Utils
-#            for Encoder, Decoder etc.
-# --------------------------------------------- #
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -97,3 +109,11 @@ def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cma
         plt.close(fig)
         del(fig)
         del(axs)
+
+def print_args(args, title="Current Arguments"):
+    """Print all arguments in a formatted way"""
+    print(f"\n{'-'*20} {title} {'-'*20}")
+    args_dict = vars(args)
+    for k, v in sorted(args_dict.items()):
+        print(f"{k}: {v}")
+    print(f"{'-'*50}\n")

@@ -7,12 +7,14 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 from datetime import datetime
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data 
+from utils import get_data, weights_init, plot_data, print_args, FocalLoss
+
 
 class TrainVQGAN:
     def __init__(self, args):
@@ -66,6 +68,7 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
+        focal_loss = FocalLoss()
         scaler = GradScaler()
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
@@ -84,7 +87,10 @@ class TrainVQGAN:
                     disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
 
                     perceptual_loss = self.perceptual_loss(imgs, decoded_images)
-                    rec_loss = torch.abs(imgs - decoded_images)
+                    if args.use_focal_loss:
+                        rec_loss = focal_loss(imgs, decoded_images)
+                    else:
+                        rec_loss = torch.abs(imgs - decoded_images)
                     perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
                     perceptual_rec_loss = perceptual_rec_loss.mean()
                     g_loss = -torch.mean(disc_fake)
@@ -225,9 +231,29 @@ if __name__ == '__main__':
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
     parser.add_argument('--run-name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
+    # Decoder-specific args
+    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
+    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
+    parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
+    parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
+
+    # Encoder-specific args
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
+    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
+    parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
+    parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
+
+    # Training-specific args
+    parser.add_argument('--use_focal_loss', type=bool, default=False, help='Use Focal Loss for training (default: False)')
+    parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
+    parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
+
+
     # TODO: Add arguments for encoder/decoder channel sizes, other options as in previous implementation
 
     args = parser.parse_args()
+    print_args(args, "Training Arguments")
     train_vqgan = TrainVQGAN(args)
 
 
