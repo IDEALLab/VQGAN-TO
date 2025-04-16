@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=topopt
+#SBATCH --job-name=train_vqgan
 #SBATCH --array=1-1
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
 #SBATCH -N 1
@@ -11,30 +11,14 @@
 #SBATCH --mail-user=adrake17@umd.edu
 #SBATCH --mail-type=END
 
-# === Load environment ===
 . ~/.bashrc
-
-# === Define paths ===
 runname=$(date +"%Y-%m-%d_%H-%M-%S")
 wd=~/scratch/VQGAN/src
 sd=~/scratch/VQGAN/saves/$runname
-
 mkdir -p "$sd"
 
-# === Make sure to unload python to prevent conflict with default installed packages on HPC ===
+# Make sure to unload python to prevent conflict with default installed packages on HPC
 module unload python
-
-# === Activate virtual environment ===
-source ~/vqgan_env/bin/activate || {
-    echo "❌ Failed to activate virtualenv"
-    exit 1
-}
-
-# === Go to working directory ===
-cd "$wd" || {
-    echo "❌ Failed to cd to $wd"
-    exit 1
-}
-
-# === Run training ===
+source ~/vqgan_env/bin/activate
+cd "$wd"
 python training_vqgan.py --run-name "$runname" > "$sd/output.txt" 2>&1

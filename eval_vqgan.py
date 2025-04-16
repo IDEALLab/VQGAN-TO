@@ -1,0 +1,195 @@
+import os
+import sys
+import argparse
+import numpy as np
+import seaborn as sns
+from tqdm import tqdm
+from matplotlib import pyplot as plt
+import torch
+from torch.amp import autocast
+from lpips import LPIPS
+from vqgan import VQGAN
+from utils import get_data, plot_data
+
+class EvalVQGAN:
+    def __init__(self, args):
+        self.vqgan = VQGAN(args).to(device=args.device)
+        self.perceptual_loss = LPIPS().eval().to(device=args.device)
+        
+        # Create evaluation directories
+        self.eval_dir = os.path.join(r"../evals", args.model_name)
+        self.results_dir = os.path.join(self.eval_dir, "results")
+        os.makedirs(self.eval_dir, exist_ok=True)
+        os.makedirs(self.results_dir, exist_ok=True)
+        
+        # Load the trained model
+        self.load_model(args)
+        
+        # Perform evaluation
+        self.evaluate(args)
+    
+    def load_model(self, args):
+        model_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
+        
+        checkpoint = torch.load(model_path, map_location=args.device)
+        
+        # Debug: Print checkpoint keys and model state_dict keys
+        print(f"Checkpoint keys: {checkpoint.keys()}")
+        
+        state_dict = checkpoint["generator"]
+        if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
+            print("Detected _orig_mod. prefix, removing it from keys...")
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                new_k = k.replace("_orig_mod.", "")
+                new_state_dict[new_k] = v
+            state_dict = new_state_dict
+        
+        self.vqgan.load_state_dict(state_dict, strict=False)
+        self.vqgan.eval()  # Set model to evaluation mode
+        
+        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
+            self.vqgan = torch.compile(self.vqgan)
+    
+
+    def evaluate(self, args):
+        _, test_dataloader, means, stds = get_data(args)
+        
+        # Metrics to track
+        metrics = {
+            'mse': [],
+            'mae': [],
+            'lpips': [],
+            'codebook_usage': {}
+        }
+        
+        # Sample images for visualization
+        sample_images = []
+        sample_reconstructions = []
+        
+        with torch.no_grad():
+            for i, (imgs, c) in enumerate(tqdm(test_dataloader, desc="Evaluating")):
+                imgs = imgs.to(device=args.device, non_blocking=True)
+                
+                with autocast(device_type=args.device, dtype=torch.float16):
+                    # The VQGAN forward method returns: decoded_images, codebook_indices, q_loss
+                    decoded_images, codebook_indices, _ = self.vqgan(imgs)
+                    
+                    # Calculate metrics
+                    mse = torch.mean((imgs - decoded_images) ** 2).item()
+                    mae = torch.mean(torch.abs(imgs - decoded_images)).item()
+                    lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
+                    
+                    metrics['mse'].append(mse)
+                    metrics['mae'].append(mae)
+                    metrics['lpips'].append(lpips_value)
+                    
+                    # Track codebook usage
+                    # codebook_indices is already the integer indices of used vectors
+                    indices = codebook_indices.cpu().numpy()
+                    unique_indices, counts = np.unique(indices, return_counts=True)
+                    
+                    for idx, count in zip(unique_indices, counts):
+                        if idx in metrics['codebook_usage']:
+                            metrics['codebook_usage'][idx] += count
+                        else:
+                            metrics['codebook_usage'][idx] = count
+                
+                # Save sample images (first batch only)
+                if i == 0:
+                    sample_images = imgs.cpu().detach().numpy()
+                    sample_reconstructions = decoded_images.cpu().detach().numpy()
+        
+        # Calculate and print average metrics
+        avg_mse = np.mean(metrics['mse'])
+        avg_mae = np.mean(metrics['mae'])
+        avg_lpips = np.mean(metrics['lpips'])
+        
+        print(f"Evaluation Results:")
+        print(f"Average MSE: {avg_mse:.6f}")
+        print(f"Average MAE: {avg_mae:.6f}")
+        print(f"Average LPIPS: {avg_lpips:.6f}")
+        
+        # Calculate codebook usage statistics
+        total_usage = sum(metrics['codebook_usage'].values())
+        codebook_usage_pct = {k: (v / total_usage) * 100 for k, v in metrics['codebook_usage'].items()}
+        active_codes = len(metrics['codebook_usage'])
+        print(f"Codebook usage: {active_codes}/{args.num_codebook_vectors} vectors used ({active_codes/args.num_codebook_vectors*100:.2f}%)")
+        
+        # Save metrics to file
+        metrics_summary = {
+            'avg_mse': avg_mse,
+            'avg_mae': avg_mae,
+            'avg_lpips': avg_lpips,
+            'active_codes': active_codes,
+            'total_codes': args.num_codebook_vectors,
+            'usage_percentage': active_codes/args.num_codebook_vectors*100
+        }
+        np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics_summary)
+        
+        # Plot codebook usage distribution
+        plt.figure(figsize=(12, 6))
+        plt.bar(range(len(codebook_usage_pct)), list(codebook_usage_pct.values()))
+        plt.xlabel('Codebook Vector Index')
+        plt.ylabel('Usage Percentage (%)')
+        plt.title('Codebook Utilization')
+        plt.savefig(os.path.join(self.results_dir, "codebook_usage.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
+        plt.close()
+        
+        # Visualize sample reconstructions
+        num_samples = min(5, len(sample_images))
+        for i in range(num_samples):
+            combined = np.stack([
+                sample_reconstructions[i], 
+                sample_images[i]
+            ])
+            img_fname = os.path.join(self.results_dir, f"sample_{i}.png")
+            
+            plot_data(
+                combined, 
+                titles=['Reconstruction', 'Original'], 
+                ranges=[[0, 1], [0, 1]], 
+                fname=img_fname,
+                cbar=False, 
+                dpi=400, 
+                mirror_image=True, 
+                cmap=sns.color_palette("viridis", as_cmap=True), 
+                fontsize=20
+            )
+        
+        # If multiple samples, create a grid of all samples
+        if num_samples > 1:
+            fig, axes = plt.subplots(2, num_samples, figsize=(3*num_samples, 6))
+            for i in range(num_samples):
+                axes[0, i].imshow(sample_images[i].transpose(1, 2, 0), cmap='viridis')
+                axes[0, i].set_title('Original' if i == 0 else '')
+                axes[0, i].axis('off')
+                
+                axes[1, i].imshow(sample_reconstructions[i].transpose(1, 2, 0), cmap='viridis')
+                axes[1, i].set_title('Reconstruction' if i == 0 else '')
+                axes[1, i].axis('off')
+            
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.results_dir, "all_samples.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
+            plt.close()
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="VQGAN Evaluation")
+    parser.add_argument('--latent-dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
+    parser.add_argument('--image-size', type=int, default=256, help='Image height and width (default: 256)')
+    parser.add_argument('--num-codebook-vectors', type=int, default=1024, help='Number of codebook vectors (default: 1024)')
+    parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
+    parser.add_argument('--image-channels', type=int, default=1, help='Number of channels of images (default: 1)')
+    parser.add_argument('--dataset-path', type=str, default='../data/gamma_4579_half.npy', help='Path to data')
+    parser.add_argument('--conditions-path', type=str, default='../data/inp_paras_4579.npy', help='Path to conditions')
+    parser.add_argument('--device', type=str, default="cuda", help='Which device to use for evaluation')
+    parser.add_argument('--batch-size', type=int, default=32, help='Input batch size for evaluation (default: 32)')
+    parser.add_argument('--model-name', type=str, required=True, help='Name of the trained model directory')
+    parser.add_argument('--problem-id', type=str, default='mto', help='Problem ID (default: mto)')
+    parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
+    parser.add_argument('--test-split', type=float, default=0.1, help='Fraction of data to use for testing (default: 0.1)')
+    
+    args = parser.parse_args()
+    eval_vqgan = EvalVQGAN(args)
