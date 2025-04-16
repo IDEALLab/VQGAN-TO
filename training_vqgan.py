@@ -33,8 +33,17 @@ class TrainVQGAN:
             self.discriminator = torch.compile(self.discriminator)
 
         self.prepare_training()
+        
+        # Save the arguments for later evaluation
+        self.save_args(args)
 
         self.train(args)
+
+    def save_args(self, args):
+        """Save the training arguments for later use in evaluation"""
+        os.makedirs(self.saves_dir, exist_ok=True)
+        args_dict = vars(args)
+        np.save(os.path.join(self.saves_dir, "training_args.npy"), args_dict)
 
     def configure_optimizers(self, args):
         lr = args.learning_rate

@@ -13,20 +13,49 @@ from utils import get_data, plot_data
 
 class EvalVQGAN:
     def __init__(self, args):
-        self.vqgan = VQGAN(args).to(device=args.device)
-        self.perceptual_loss = LPIPS().eval().to(device=args.device)
-        
-        # Create evaluation directories
+        # Create evaluation directories first, before loading model
         self.eval_dir = os.path.join(r"../evals", args.model_name)
         self.results_dir = os.path.join(self.eval_dir, "results")
         os.makedirs(self.eval_dir, exist_ok=True)
         os.makedirs(self.results_dir, exist_ok=True)
+        
+        # Load saved training arguments and update current args
+        self.load_training_args(args)
+        
+        # Now initialize VQGAN with potentially updated args
+        self.vqgan = VQGAN(args).to(device=args.device)
+        self.perceptual_loss = LPIPS().eval().to(device=args.device)
         
         # Load the trained model
         self.load_model(args)
         
         # Perform evaluation
         self.evaluate(args)
+
+    def load_training_args(self, args):
+        """Load the training arguments and update the evaluation args"""
+        training_args_path = os.path.join(r"../saves", args.model_name, "training_args.npy")
+        if os.path.exists(training_args_path):
+            print(f"Loading training arguments from {training_args_path}")
+            training_args_dict = np.load(training_args_path, allow_pickle=True).item()
+            
+            # Update only model architecture related arguments, keep evaluation specific args
+            preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
+            current_args_dict = vars(args)
+            preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
+            
+            # Update args with training values
+            for k, v in training_args_dict.items():
+                if k not in preserve_keys:
+                    setattr(args, k, v)
+            
+            # Restore preserved values
+            for k, v in preserved_values.items():
+                setattr(args, k, v)
+                
+            print(f"Updated arguments from training: latent_dim={args.latent_dim}, num_codebook_vectors={args.num_codebook_vectors}")
+        else:
+            print(f"Warning: Training arguments not found at {training_args_path}. Using provided evaluation arguments.")
     
     def load_model(self, args):
         model_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
