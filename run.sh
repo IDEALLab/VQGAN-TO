@@ -7,7 +7,7 @@
 #SBATCH -t 24:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
-#SBATCH --gpus=h100:1
+#SBATCH --gpus=a100_1g.5gb:1
 #SBATCH --mail-user=adrake17@umd.edu
 #SBATCH --mail-type=END
 

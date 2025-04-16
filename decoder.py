@@ -8,7 +8,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         in_channels = args.decoder_channels[0]
         resolution = args.decoder_start_resolution
-        layers = [self._conv(args.use_spectral_norm, args.latent_dim, in_channels, 3, 1, 1),
+        layers = [self._conv(args.spectral_norm, args.latent_dim, in_channels, 3, 1, 1),
                   ResidualBlock(in_channels, in_channels),
                   NonLocalBlock(in_channels),
                   ResidualBlock(in_channels, in_channels)]
@@ -26,7 +26,7 @@ class Decoder(nn.Module):
 
         layers.append(GroupNorm(in_channels))
         layers.append(Swish())
-        layers.append(self._conv(args.use_spectral_norm, in_channels, args.image_channels, 3, 1, 1))
+        layers.append(self._conv(args.spectral_norm, in_channels, args.image_channels, 3, 1, 1))
         self.model = nn.Sequential(*layers)
 
     def _conv(self, use_spectral_norm, in_channels, out_channels, kernel_size, stride, padding):
