@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-from torchvision.models import vgg16, VGG16_Weights
+from torchvision.models import vgg16
 from collections import namedtuple
 import requests
 from tqdm import tqdm
@@ -58,8 +58,7 @@ class LPIPS(nn.Module):
 
     def load_from_pretrained(self, name="vgg_lpips"):
         ckpt = get_ckpt_path(name, "vgg_lpips")
-        state_dict = torch.load(ckpt, map_location=torch.device("cpu"), weights_only=True)
-        self.load_state_dict(state_dict, strict=False)
+        self.load_state_dict(torch.load(ckpt, map_location=torch.device("cpu")), strict=False)
 
     def forward(self, real_x, fake_x):
         features_real = self.vgg(self.scaling_layer(real_x))
@@ -94,7 +93,7 @@ class NetLinLayer(nn.Module):
 class VGG16(nn.Module):
     def __init__(self):
         super(VGG16, self).__init__()
-        vgg_pretrained_features = vgg16(weights = VGG16_Weights.IMAGENET1K_V1).features
+        vgg_pretrained_features = vgg16(pretrained=True).features
         slices = [vgg_pretrained_features[i] for i in range(30)]
         self.slice1 = nn.Sequential(*slices[0:4])
         self.slice2 = nn.Sequential(*slices[4:9])
