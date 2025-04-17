@@ -43,9 +43,21 @@ class TrainVQGAN:
 
     def save_args(self, args):
         """Save the training arguments for later use in evaluation"""
+        import json
+        
         os.makedirs(self.saves_dir, exist_ok=True)
         args_dict = vars(args)
-        np.save(os.path.join(self.saves_dir, "training_args.npy"), args_dict)
+        
+        # Convert any non-serializable objects to strings
+        for key, value in args_dict.items():
+            if not isinstance(value, (str, int, float, bool, list, dict, tuple, type(None))):
+                args_dict[key] = str(value)
+        
+        # Save as JSON
+        with open(os.path.join(self.saves_dir, "training_args.json"), 'w') as f:
+            json.dump(args_dict, f, indent=4)
+        
+        print(f"Training arguments saved to {os.path.join(self.saves_dir, 'training_args.json')}")
 
     def configure_optimizers(self, args):
         lr = args.learning_rate

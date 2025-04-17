@@ -36,26 +36,44 @@ class EvalVQGAN:
 
     def load_training_args(self, args):
         """Load the training arguments and update the evaluation args"""
-        training_args_path = os.path.join(r"../saves", args.model_name, "training_args.npy")
+        import json
+        
+        training_args_path = os.path.join(r"../saves", args.model_name, "training_args.json")
         if os.path.exists(training_args_path):
             print(f"Loading training arguments from {training_args_path}")
-            training_args_dict = np.load(training_args_path, allow_pickle=True).item()
             
-            # Update only model architecture related arguments, keep evaluation specific args
-            preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
-            current_args_dict = vars(args)
-            preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
-            
-            # Update args with training values
-            for k, v in training_args_dict.items():
-                if k not in preserve_keys:
-                    setattr(args, k, v)
-            
-            # Restore preserved values
-            for k, v in preserved_values.items():
-                setattr(args, k, v)
+            try:
+                with open(training_args_path, 'r') as f:
+                    training_args_dict = json.load(f)
                 
-            print_args(args, "Updated Evaluation Arguments")
+                # Update only model architecture related arguments, keep evaluation specific args
+                preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
+                current_args_dict = vars(args)
+                preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
+                
+                # Update args with training values
+                for k, v in training_args_dict.items():
+                    if k not in preserve_keys and hasattr(args, k):
+                        # Convert to the right type based on current args
+                        arg_type = type(getattr(args, k)) if hasattr(args, k) else type(v)
+                        try:
+                            if arg_type == bool and isinstance(v, str):
+                                # Handle boolean values that were stored as strings
+                                setattr(args, k, v.lower() == 'true')
+                            else:
+                                setattr(args, k, arg_type(v))
+                        except (ValueError, TypeError):
+                            # If conversion fails, use the value as is
+                            setattr(args, k, v)
+                
+                # Restore preserved values
+                for k, v in preserved_values.items():
+                    setattr(args, k, v)
+                    
+                print_args(args, "Updated Evaluation Arguments")
+            except Exception as e:
+                print(f"Error loading training arguments: {e}")
+                print("Using provided evaluation arguments instead.")
         else:
             print(f"Warning: Training arguments not found at {training_args_path}. Using provided evaluation arguments.")
     
