@@ -13,7 +13,7 @@ from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, FocalLoss
+from utils import get_data, weights_init, plot_data, print_args, FocalWithLogitsLoss
 
 
 class TrainVQGAN:
@@ -80,7 +80,7 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
-        focal_loss = FocalLoss()
+        focal_loss = FocalWithLogitsLoss()
         scaler = GradScaler()
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)

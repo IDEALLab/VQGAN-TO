@@ -7,25 +7,30 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
 
 
-class FocalLoss(nn.Module):
+class FocalWithLogitsLoss(nn.Module):
     def __init__(self, gamma=2.0, alpha=0.25, reduction='mean'):
         super().__init__()
-        self.gamma = gamma
         self.alpha = alpha
+        self.gamma = gamma
         self.reduction = reduction
 
-    def forward(self, input, target, eps=1e-6):
-        input = input.clamp(eps, 1. - eps)
-        target = target.clamp(eps, 1. - eps)
+    def forward(self, input, target):
+        # Compute BCE loss per element
+        bce_loss = F.binary_cross_entropy_with_logits(input, target, reduction='none')
+        
+        # Compute pt
+        pt = torch.exp(-bce_loss)
+        
+        # Apply focal loss formula
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
 
-        pt = torch.where(target >= 0.5, input, 1 - input)
-        loss = -self.alpha * (1 - pt) ** self.gamma * pt.log()
-
+        # Apply reduction
         if self.reduction == 'mean':
-            return loss.mean()
+            return focal_loss.mean()
         elif self.reduction == 'sum':
-            return loss.sum()
-        return loss
+            return focal_loss.sum()
+        else:
+            return focal_loss
     
     
 # Now loads in the full dataset with conditions

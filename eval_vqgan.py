@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from torch.amp import autocast
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data, print_args, FocalLoss
+from utils import get_data, plot_data, print_args, FocalWithLogitsLoss
 
 class EvalVQGAN:
     def __init__(self, args):
@@ -130,7 +130,7 @@ class EvalVQGAN:
                     # Calculate metrics
                     mse = torch.mean((imgs - decoded_images) ** 2).item()
                     mae = torch.mean(torch.abs(imgs - decoded_images)).item()
-                    focal_loss = FocalLoss()(decoded_images, imgs).item()
+                    focal_loss = FocalWithLogitsLoss()(decoded_images, imgs).item()
                     lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
                     
                     metrics['mse'].append(mse)
