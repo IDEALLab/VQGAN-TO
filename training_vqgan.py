@@ -135,9 +135,9 @@ class TrainVQGAN:
                 if args.track:
                     batches_done = epoch * len(dataloader) + i
 
-                    print(
-                        f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(dataloader)}] [D loss: {gan_loss.item()}] [G loss: {vq_loss.item()}]"
-                    )
+                    # print(
+                    #     f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(dataloader)}] [D loss: {gan_loss.item()}] [G loss: {vq_loss.item()}]"
+                    # )
 
                     # This saves images of real vs. generated designs every sample_interval
                     if batches_done % args.sample_interval == 0:
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
-    parser.add_argument('--use_focal_loss', type=bool, default=False, help='Use Focal Loss for training (default: False)')
+    parser.add_argument('--use_focal_loss', type=bool, default=True, help='Use Focal Loss for training (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
