@@ -8,13 +8,15 @@ from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.amp import autocast
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data, print_args, FocalWithLogitsLoss
+from utils import get_data, plot_data, print_args, set_precision, set_all_seeds, FocalLoss, FocalWithLogitsLoss, FocalActivationWrapper
 
 class EvalVQGAN:
     def __init__(self, args):
+        set_precision()
+        set_all_seeds(args.seed)
+    
         # Create evaluation directories first, before loading model
         self.eval_dir = os.path.join(r"../evals", args.model_name)
         self.results_dir = os.path.join(self.eval_dir, "results")
@@ -82,7 +84,7 @@ class EvalVQGAN:
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
         
-        checkpoint = torch.load(model_path, map_location=args.device)
+        checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
         
         # Debug: Print checkpoint keys and model state_dict keys
         print(f"Checkpoint keys: {checkpoint.keys()}")
@@ -114,6 +116,9 @@ class EvalVQGAN:
             'lpips': [],
             'codebook_usage': {}
         }
+
+        focal_loss_fcn = FocalWithLogitsLoss() if args.use_focal_loss else FocalLoss()
+        activation = FocalActivationWrapper(args.use_focal_loss)
         
         # Sample images for visualization
         sample_images = []
@@ -123,36 +128,35 @@ class EvalVQGAN:
             for i, (imgs, c) in enumerate(tqdm(test_dataloader, desc="Evaluating")):
                 imgs = imgs.to(device=args.device, non_blocking=True)
                 
-                with autocast(device_type=args.device, dtype=torch.float16):
-                    # The VQGAN forward method returns: decoded_images, codebook_indices, q_loss
-                    decoded_images, codebook_indices, _ = self.vqgan(imgs)
-                    
-                    # Calculate metrics
-                    mse = torch.mean((imgs - decoded_images) ** 2).item()
-                    mae = torch.mean(torch.abs(imgs - decoded_images)).item()
-                    focal_loss = FocalWithLogitsLoss()(decoded_images, imgs).item()
-                    lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
-                    
-                    metrics['mse'].append(mse)
-                    metrics['mae'].append(mae)
-                    metrics['focal_loss'].append(focal_loss)
-                    metrics['lpips'].append(lpips_value)
-                    
-                    # Track codebook usage
-                    # codebook_indices is already the integer indices of used vectors
-                    indices = codebook_indices.cpu().numpy()
-                    unique_indices, counts = np.unique(indices, return_counts=True)
-                    
-                    for idx, count in zip(unique_indices, counts):
-                        if idx in metrics['codebook_usage']:
-                            metrics['codebook_usage'][idx] += count
-                        else:
-                            metrics['codebook_usage'][idx] = count
+                # The VQGAN forward method returns: decoded_images, codebook_indices, q_loss
+                decoded_images, codebook_indices, _ = self.vqgan(imgs)
+                
+                # Calculate metrics
+                mse = torch.mean((imgs - activation(decoded_images)) ** 2).item()
+                mae = torch.mean(torch.abs(imgs - activation(decoded_images))).item()
+                focal_loss = focal_loss_fcn(decoded_images, imgs).item()
+                lpips_value = self.perceptual_loss(imgs, activation(decoded_images)).mean().item()
+                
+                metrics['mse'].append(mse)
+                metrics['mae'].append(mae)
+                metrics['focal_loss'].append(focal_loss)
+                metrics['lpips'].append(lpips_value)
+                
+                # Track codebook usage
+                # codebook_indices is already the integer indices of used vectors
+                indices = codebook_indices.cpu().numpy()
+                unique_indices, counts = np.unique(indices, return_counts=True)
+                
+                for idx, count in zip(unique_indices, counts):
+                    if idx in metrics['codebook_usage']:
+                        metrics['codebook_usage'][idx] += count
+                    else:
+                        metrics['codebook_usage'][idx] = count
                 
                 # Save sample images (first batch only)
                 if i == 0:
                     sample_images = imgs.cpu().detach().numpy()
-                    sample_reconstructions = decoded_images.cpu().detach().numpy()
+                    sample_reconstructions = activation(decoded_images).cpu().detach().numpy()
         
         # Calculate and print average metrics
         avg_mse = np.mean(metrics['mse'])

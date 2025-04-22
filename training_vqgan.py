@@ -13,11 +13,14 @@ from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, FocalWithLogitsLoss
+from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, FocalWithLogitsLoss, FocalActivationWrapper
 
 
 class TrainVQGAN:
     def __init__(self, args):
+        set_precision()
+        set_all_seeds(args.seed)
+
         self.vqgan = VQGAN(args).to(device=args.device)
         self.discriminator = Discriminator(args).to(device=args.device)
         self.discriminator.apply(weights_init)
@@ -81,6 +84,8 @@ class TrainVQGAN:
 
     def train(self, args):
         focal_loss = FocalWithLogitsLoss()
+        activation = FocalActivationWrapper(args.use_focal_loss)
+
         scaler = GradScaler()
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
@@ -98,7 +103,7 @@ class TrainVQGAN:
 
                     disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
 
-                    perceptual_loss = self.perceptual_loss(imgs, decoded_images)
+                    perceptual_loss = self.perceptual_loss(imgs, activation(decoded_images))
                     if args.use_focal_loss:
                         rec_loss = focal_loss(imgs, decoded_images)
                     else:
@@ -137,7 +142,7 @@ class TrainVQGAN:
                     # This saves images of real vs. generated designs every sample_interval
                     if batches_done % args.sample_interval == 0:
                         combined = np.stack([
-                            decoded_images[-1].cpu().detach().numpy(), 
+                            activation(decoded_images)[-1].cpu().detach().numpy(), 
                             imgs[-1].cpu().detach().numpy()
                         ])
                         img_fname = os.path.join(self.results_dir, f"{batches_done}.png")

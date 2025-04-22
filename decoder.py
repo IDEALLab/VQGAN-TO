@@ -25,7 +25,11 @@ class Decoder(nn.Module):
                 resolution *= 2
 
         layers.append(GroupNorm(in_channels))
-        layers.append(Swish())
+
+        # EDIT FROM ORIGINAL: Required so the decoder outputs logits...converted back to image space using sigmoid later
+        if not args.use_focal_loss:
+            layers.append(Swish())
+        
         layers.append(self._conv(args.spectral_norm, in_channels, args.image_channels, 3, 1, 1))
         self.model = nn.Sequential(*layers)
 
