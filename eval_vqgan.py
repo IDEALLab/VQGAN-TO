@@ -226,7 +226,7 @@ class EvalVQGAN:
                 axes[0, i].set_title('Original' if i == 0 else '')
                 axes[0, i].axis('off')
                 
-                axes[1, i].imshow(sample_reconstructions[i].transpose(1, 2, 0), cmap='viridis')
+                axes[1, i].imshow(sample_reconstructions[i].transpose(1, 2, 0), cmap='viridis', vmin=0, vmax=1)
                 axes[1, i].set_title('Reconstruction' if i == 0 else '')
                 axes[1, i].axis('off')
             
