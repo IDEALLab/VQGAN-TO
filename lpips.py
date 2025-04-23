@@ -137,3 +137,72 @@ def spatial_average(x):
     :return: averaged images along width and height
     """
     return x.mean([2, 3], keepdim=True)
+
+class GreyscaleLPIPS(nn.Module):
+    def __init__(self, use_raw=True, clamp_output=False, robust_clamp=True, warn_on_clamp=False):
+        super().__init__()
+        self.use_raw = use_raw
+        self.clamp_output = clamp_output
+        self.robust_clamp = robust_clamp
+        self.warn_on_clamp = warn_on_clamp
+
+        self.scaling_layer = ScalingLayer()
+        self.channels = [64, 128, 256, 512, 512]
+        self.vgg = VGG16()
+
+        self.lins = nn.ModuleList([
+            NetLinLayer(self.channels[0]),
+            NetLinLayer(self.channels[1]),
+            NetLinLayer(self.channels[2]),
+            NetLinLayer(self.channels[3]),
+            NetLinLayer(self.channels[4])
+        ])
+
+        self.load_from_pretrained()
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def load_from_pretrained(self, name="vgg_lpips"):
+        ckpt = get_ckpt_path(name, "vgg_lpips")
+        state_dict = torch.load(ckpt, map_location=torch.device("cpu"), weights_only=True)
+        self.load_state_dict(state_dict, strict=False)
+
+    def forward(self, real_x, fake_x):
+        if self.warn_on_clamp:
+            with torch.no_grad():
+                if (fake_x < 0).any() or (fake_x > 1).any():
+                    print(f"Warning: Generated image contains values outside [0,1] range: [{fake_x.min().item():.4f}, {fake_x.max().item():.4f}]")
+                if (real_x < 0).any() or (real_x > 1).any():
+                    print(f"Warning: Reference image contains values outside [0,1] range: [{real_x.min().item():.4f}, {real_x.max().item():.4f}]")
+
+        if self.robust_clamp:
+            real_x = torch.clamp(real_x, 0.0, 1.0)
+            fake_x = torch.clamp(fake_x, 0.0, 1.0)
+
+        # Convert grayscale to RGB by duplicating channel if needed
+        if real_x.shape[1] == 1:
+            real_x = real_x.repeat(1, 3, 1, 1)
+        if fake_x.shape[1] == 1:
+            fake_x = fake_x.repeat(1, 3, 1, 1)
+
+        features_real = self.vgg(self.scaling_layer(real_x))
+        features_fake = self.vgg(self.scaling_layer(fake_x))
+
+        diffs = [(norm_tensor(fr) - norm_tensor(ff)) ** 2 for fr, ff in zip(features_real, features_fake)]
+
+        if self.use_raw:
+            loss = sum([
+                spatial_average(d).mean(dim=1, keepdim=True)  # reduce channel dimension
+                for d in diffs
+            ])
+        else:
+            loss = sum([
+                spatial_average(self.lins[i].model(d))
+                for i, d in enumerate(diffs)
+            ])
+
+        if self.clamp_output:
+            loss = torch.clamp(loss, min=0.0)
+
+        return loss

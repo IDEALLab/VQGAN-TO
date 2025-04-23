@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from lpips import LPIPS
+from lpips import LPIPS, GreyscaleLPIPS
 from vqgan import VQGAN
 from utils import get_data, plot_data, print_args, set_precision, set_all_seeds
 
@@ -29,6 +29,7 @@ class EvalVQGAN:
         # Now initialize VQGAN with potentially updated args
         self.vqgan = VQGAN(args).to(device=args.device)
         self.perceptual_loss = LPIPS().eval().to(device=args.device)
+        self.grey_perceptual_loss = GreyscaleLPIPS().eval().to(device=args.device)
         
         # Load the trained model
         self.load_model(args)
@@ -112,6 +113,7 @@ class EvalVQGAN:
         metrics = {
             'mse': [],
             'mae': [],
+            'grey_lpips': [],
             'lpips': [],
             'codebook_usage': {}
         }
@@ -131,10 +133,12 @@ class EvalVQGAN:
                 mse = torch.mean((imgs - decoded_images) ** 2).item()
                 mae = torch.mean(torch.abs(imgs - decoded_images)).item()
                 lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
+                grey_lpips_value = self.grey_perceptual_loss(imgs, decoded_images).mean().item()
                 
                 metrics['mse'].append(mse)
                 metrics['mae'].append(mae)
                 metrics['lpips'].append(lpips_value)
+                metrics['grey_lpips'].append(grey_lpips_value)
                 
                 # Track codebook usage
                 # codebook_indices is already the integer indices of used vectors
@@ -156,11 +160,13 @@ class EvalVQGAN:
         avg_mse = np.mean(metrics['mse'])
         avg_mae = np.mean(metrics['mae'])
         avg_lpips = np.mean(metrics['lpips'])
+        avg_grey_lpips = np.mean(metrics['grey_lpips'])
         
         print(f"Evaluation Results:")
         print(f"Average MSE: {avg_mse:.6f}")
         print(f"Average MAE: {avg_mae:.6f}")
         print(f"Average LPIPS: {avg_lpips:.6f}")
+        print(f"Average Greyscale LPIPS: {avg_grey_lpips:.6f}")
         
         # Calculate codebook usage statistics
         total_usage = sum(metrics['codebook_usage'].values())
@@ -173,6 +179,7 @@ class EvalVQGAN:
             'avg_mse': avg_mse,
             'avg_mae': avg_mae,
             'avg_lpips': avg_lpips,
+            'avg_grey_lpips': avg_grey_lpips,
             'active_codes': active_codes,
             'total_codes': args.num_codebook_vectors,
             'usage_percentage': active_codes/args.num_codebook_vectors*100
@@ -255,6 +262,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Evaluation-specific args
+    parser.add_argument('--use_greyscale_lpips', type=bool, default=False, help='Use LPIPS for perceptual loss (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
     

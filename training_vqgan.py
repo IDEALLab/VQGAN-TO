@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
-from lpips import LPIPS
+from lpips import LPIPS, GreyscaleLPIPS
 from vqgan import VQGAN
 from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds
 
@@ -24,7 +24,7 @@ class TrainVQGAN:
         self.vqgan = VQGAN(args).to(device=args.device)
         self.discriminator = Discriminator(args).to(device=args.device)
         self.discriminator.apply(weights_init)
-        self.perceptual_loss = LPIPS().eval().to(device=args.device)
+        self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
         self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': []}
 
@@ -256,6 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
+    parser.add_argument('--use_greyscale_lpips', type=bool, default=False, help='Use LPIPS for perceptual loss (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
