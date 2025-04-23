@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data, print_args, set_precision, set_all_seeds, FocalLoss, FocalWithLogitsLoss, FocalActivationWrapper
+from utils import get_data, plot_data, print_args, set_precision, set_all_seeds
 
 class EvalVQGAN:
     def __init__(self, args):
@@ -112,13 +112,9 @@ class EvalVQGAN:
         metrics = {
             'mse': [],
             'mae': [],
-            'focal_loss': [],
             'lpips': [],
             'codebook_usage': {}
         }
-
-        focal_loss_fcn = FocalWithLogitsLoss() if args.use_focal_loss else FocalLoss()
-        activation = FocalActivationWrapper(args.use_focal_loss)
         
         # Sample images for visualization
         sample_images = []
@@ -132,14 +128,12 @@ class EvalVQGAN:
                 decoded_images, codebook_indices, _ = self.vqgan(imgs)
                 
                 # Calculate metrics
-                mse = torch.mean((imgs - activation(decoded_images)) ** 2).item()
-                mae = torch.mean(torch.abs(imgs - activation(decoded_images))).item()
-                focal_loss = focal_loss_fcn(decoded_images, imgs).item()
-                lpips_value = self.perceptual_loss(imgs, activation(decoded_images)).mean().item()
+                mse = torch.mean((imgs - decoded_images) ** 2).item()
+                mae = torch.mean(torch.abs(imgs - decoded_images)).item()
+                lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
                 
                 metrics['mse'].append(mse)
                 metrics['mae'].append(mae)
-                metrics['focal_loss'].append(focal_loss)
                 metrics['lpips'].append(lpips_value)
                 
                 # Track codebook usage
@@ -156,18 +150,16 @@ class EvalVQGAN:
                 # Save sample images (first batch only)
                 if i == 0:
                     sample_images = imgs.cpu().detach().numpy()
-                    sample_reconstructions = activation(decoded_images).cpu().detach().numpy()
+                    sample_reconstructions = decoded_images.cpu().detach().numpy()
         
         # Calculate and print average metrics
         avg_mse = np.mean(metrics['mse'])
         avg_mae = np.mean(metrics['mae'])
-        avg_focal_loss = np.mean(metrics['focal_loss'])
         avg_lpips = np.mean(metrics['lpips'])
         
         print(f"Evaluation Results:")
         print(f"Average MSE: {avg_mse:.6f}")
         print(f"Average MAE: {avg_mae:.6f}")
-        print(f"Average Focal Loss: {avg_focal_loss:.6f}")
         print(f"Average LPIPS: {avg_lpips:.6f}")
         
         # Calculate codebook usage statistics
@@ -180,7 +172,6 @@ class EvalVQGAN:
         metrics_summary = {
             'avg_mse': avg_mse,
             'avg_mae': avg_mae,
-            'avg_focal_loss': avg_focal_loss,
             'avg_lpips': avg_lpips,
             'active_codes': active_codes,
             'total_codes': args.num_codebook_vectors,
@@ -264,7 +255,6 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Evaluation-specific args
-    parser.add_argument('--use_focal_loss', type=bool, default=False, help='Use Focal Loss for training (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
     

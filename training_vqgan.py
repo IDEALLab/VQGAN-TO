@@ -13,7 +13,7 @@ from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, FocalWithLogitsLoss, FocalActivationWrapper
+from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds
 
 
 class TrainVQGAN:
@@ -83,9 +83,6 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
-        focal_loss = FocalWithLogitsLoss()
-        activation = FocalActivationWrapper(args.use_focal_loss)
-
         scaler = GradScaler()
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
@@ -103,11 +100,8 @@ class TrainVQGAN:
 
                     disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
 
-                    perceptual_loss = self.perceptual_loss(imgs, activation(decoded_images))
-                    if args.use_focal_loss:
-                        rec_loss = focal_loss(imgs, decoded_images)
-                    else:
-                        rec_loss = torch.abs(imgs - decoded_images)
+                    perceptual_loss = self.perceptual_loss(imgs, decoded_images)
+                    rec_loss = torch.abs(imgs - decoded_images)
                     perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
                     perceptual_rec_loss = perceptual_rec_loss.mean()
                     g_loss = -torch.mean(disc_fake)
@@ -142,7 +136,7 @@ class TrainVQGAN:
                     # This saves images of real vs. generated designs every sample_interval
                     if batches_done % args.sample_interval == 0:
                         combined = np.stack([
-                            activation(decoded_images)[-1].cpu().detach().numpy(), 
+                            decoded_images[-1].cpu().detach().numpy(), 
                             imgs[-1].cpu().detach().numpy()
                         ])
                         img_fname = os.path.join(self.results_dir, f"{batches_done}.png")
@@ -262,7 +256,6 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
-    parser.add_argument('--use_focal_loss', type=bool, default=True, help='Use Focal Loss for training (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
