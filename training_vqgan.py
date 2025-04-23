@@ -217,7 +217,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VQGAN")
     parser.add_argument('--latent-dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
     parser.add_argument('--image-size', type=int, default=256, help='Image height and width (default: 256)')
-    parser.add_argument('--num-codebook-vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
+    parser.add_argument('--num-codebook-vectors', type=int, default=32, help='Number of codebook vectors (default: 256)')
     parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
     parser.add_argument('--image-channels', type=int, default=1, help='Number of channels of images (default: 3)')
     parser.add_argument('--dataset-path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: /data)') # New dataset path
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
     parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
     parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
-    parser.add_argument('--disc-start', type=int, default=0, help='When to start the discriminator (default: 0)')
+    parser.add_argument('--disc-start', type=int, default=3*215, help='When to start the discriminator (default: 0)')
     parser.add_argument('--disc-factor', type=float, default=1., help='')
     parser.add_argument('--rec-loss-factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
     parser.add_argument('--perceptual-loss-factor', type=float, default=1., help='Weighting factor for perceptual loss.')
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('--run-name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--spectral_norm', type=bool, default=True, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
@@ -256,7 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=bool, default=False, help='Use LPIPS for perceptual loss (default: False)')
+    parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
@@ -266,6 +266,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print_args(args, "Training Arguments")
     train_vqgan = TrainVQGAN(args)
+
+    # saves/2025-04-22_13-32-04: Complete baseline. Note: using batch_size 16.
+    # saves/2025-04-23_12-10-46: Baseline with Greyscale LPIPS
+    # saves/2025-04-23_13-04-49: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, disc start at 3*215
 
 
 
