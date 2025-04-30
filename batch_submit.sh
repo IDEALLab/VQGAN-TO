@@ -74,7 +74,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     EVAL_SCRIPT="$TEMP_DIR/eval_${JOB_NAME}.sh"
     
     # Create a timestamp-based name for this run
-    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S_%3N")
     RUNNAME="${JOB_NAME}_${TIMESTAMP}"
     
     # Prepare the parameter string for the Python command
