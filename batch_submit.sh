@@ -14,6 +14,8 @@ function print_usage() {
     echo "Example configuration file format:"
     echo "# Comments start with #"
     echo "# Each job is defined by JOB_NAME:param1=value1,param2=value2"
+    echo "experiment1:batch_size=64,learning_rate=0.001,epochs=100"
+    echo "experiment2:batch_size=128,learning_rate=0.0005,epochs=150"
 }
 
 # Parse command-line arguments
@@ -98,7 +100,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     
     # Create the training job script
     cat > "$JOB_SCRIPT" << EOL
-
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
 #SBATCH --array=1-1
