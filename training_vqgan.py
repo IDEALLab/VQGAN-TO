@@ -215,7 +215,7 @@ class TrainVQGAN:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VQGAN")
-    parser.add_argument('--latent-dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
+    parser.add_argument('--latent-dim', type=int, default=16, help='Latent dimension n_z (default: 256)')
     parser.add_argument('--image-size', type=int, default=256, help='Image height and width (default: 256)')
     parser.add_argument('--num-codebook-vectors', type=int, default=32, help='Number of codebook vectors (default: 256)')
     parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
@@ -224,10 +224,10 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
     parser.add_argument('--batch-size', type=int, default=16, help='Input batch size for training (default: 6)')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
-    parser.add_argument('--learning-rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
+    parser.add_argument('--learning-rate', type=float, default=2e-04, help='Learning rate (default: 0.0002)')
     parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
     parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
-    parser.add_argument('--disc-start', type=int, default=3*215, help='When to start the discriminator (default: 0)')
+    parser.add_argument('--disc-start', type=int, default=215*9999, help='When to start the discriminator (default: 0)')
     parser.add_argument('--disc-factor', type=float, default=1., help='')
     parser.add_argument('--rec-loss-factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
     parser.add_argument('--perceptual-loss-factor', type=float, default=1., help='Weighting factor for perceptual loss.')
@@ -244,13 +244,13 @@ if __name__ == '__main__':
 
     # Decoder-specific args
     parser.add_argument('--spectral_norm', type=bool, default=True, help='Apply spectral normalization to Conv layers (default: False)')
-    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[256, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
     parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
 
     # Encoder-specific args
-    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 256], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
     parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
     parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
@@ -269,7 +269,19 @@ if __name__ == '__main__':
 
     # saves/2025-04-22_13-32-04: Complete baseline. Note: using batch_size 16.
     # saves/2025-04-23_12-10-46: Baseline with Greyscale LPIPS
+    # saves/2025-04-24_06-36-52: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32 ONLY
+        # Satisfactory
     # saves/2025-04-23_13-04-49: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, disc start at 3*215
+        # Leads to some generator degradation
+    # saves/2025-04-23_20-27-33: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, NO discriminator
+        # Among the best so far but deviates from "GAN" in VQGAN
+    # saves/2025-04-24_14-49-04: Baseline with Greyscale LPIPS, latent dim reduced from 256 to 16, 512-width layers reduced to 256, attn dims changed from [16] to []
+    # saves/2025-04-24_17-46-54: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 64, latent dim reduced from 256 to 16, 512-width layers reduced to 256, spectral norm enabled, NO discriminator, learning rate increased from 2.25e-5 to 2e-4
+    # saves/2025-04-24_19-28-29: Same as above but with 32 codebook vectors
 
+    # saves/2025-04-28_11-30-31: Same as above but with 16 codebook vectors
+    # saves/2025-04-28_11-31-01: Same as above but with batch size doubled to 32, sample interval 215 --> 108
 
+    # saves/2025-04-29_18-42-49: Same as saves/2025-04-24_19-28-29 but with attn resolutions [16] --> [16, 32, 64]
+        # Little to no improvement at a significant training time cost
 

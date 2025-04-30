@@ -2,8 +2,8 @@
 #SBATCH --job-name=eval_vqgan
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
 #SBATCH -N 1
-#SBATCH -n 8
-#SBATCH -t 4:00:00
+#SBATCH -n 16
+#SBATCH -t 1:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1

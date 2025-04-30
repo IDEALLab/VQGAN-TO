@@ -114,7 +114,7 @@ class EvalVQGAN:
             'mse': [],
             'mae': [],
             'grey_lpips': [],
-            'lpips': [],
+            # 'lpips': [],
             'codebook_usage': {}
         }
         
@@ -126,18 +126,25 @@ class EvalVQGAN:
             for i, (imgs, c) in enumerate(tqdm(test_dataloader, desc="Evaluating")):
                 imgs = imgs.to(device=args.device, non_blocking=True)
                 
+                # This is just to check the shape of the encoded images in the evaluation
+                if i == 0:
+                    encoded, _, _ = self.vqgan.encode(imgs)
+                    print("Encoded shape:", encoded.shape)
+
                 # The VQGAN forward method returns: decoded_images, codebook_indices, q_loss
                 decoded_images, codebook_indices, _ = self.vqgan(imgs)
+                if i == 0:
+                    print("Indices shape:", codebook_indices.shape)
                 
                 # Calculate metrics
                 mse = torch.mean((imgs - decoded_images) ** 2).item()
                 mae = torch.mean(torch.abs(imgs - decoded_images)).item()
-                lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
+                # lpips_value = self.perceptual_loss(imgs, decoded_images).mean().item()
                 grey_lpips_value = self.grey_perceptual_loss(imgs, decoded_images).mean().item()
                 
                 metrics['mse'].append(mse)
                 metrics['mae'].append(mae)
-                metrics['lpips'].append(lpips_value)
+                # metrics['lpips'].append(lpips_value)
                 metrics['grey_lpips'].append(grey_lpips_value)
                 
                 # Track codebook usage
@@ -159,13 +166,13 @@ class EvalVQGAN:
         # Calculate and print average metrics
         avg_mse = np.mean(metrics['mse'])
         avg_mae = np.mean(metrics['mae'])
-        avg_lpips = np.mean(metrics['lpips'])
+        # avg_lpips = np.mean(metrics['lpips'])
         avg_grey_lpips = np.mean(metrics['grey_lpips'])
         
         print(f"Evaluation Results:")
         print(f"Average MSE: {avg_mse:.6f}")
         print(f"Average MAE: {avg_mae:.6f}")
-        print(f"Average LPIPS: {avg_lpips:.6f}")
+        # print(f"Average LPIPS: {avg_lpips:.6f}")
         print(f"Average Greyscale LPIPS: {avg_grey_lpips:.6f}")
         
         # Calculate codebook usage statistics
@@ -178,7 +185,7 @@ class EvalVQGAN:
         metrics_summary = {
             'avg_mse': avg_mse,
             'avg_mae': avg_mae,
-            'avg_lpips': avg_lpips,
+            # 'avg_lpips': avg_lpips,
             'avg_grey_lpips': avg_grey_lpips,
             'active_codes': active_codes,
             'total_codes': args.num_codebook_vectors,
