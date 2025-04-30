@@ -256,7 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=bool, default=False, help='Use Greyscale LPIPS for perceptual loss (default: False)')
+    parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
