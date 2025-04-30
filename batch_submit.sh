@@ -73,9 +73,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     JOB_SCRIPT="$TEMP_DIR/run_${JOB_NAME}.sh"
     EVAL_SCRIPT="$TEMP_DIR/eval_${JOB_NAME}.sh"
     
-    # Create a timestamp-based name for this run
-    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S_%3N")
-    RUNNAME="${JOB_NAME}_${TIMESTAMP}"
+    # Use the given name for this run
+    RUNNAME="${JOB_NAME}"
     
     # Prepare the parameter string for the Python command
     PARAM_STRING=""
@@ -132,14 +131,13 @@ cd "\$wd"
 echo "Running with parameters: $PARAM_STRING --run-name \$runname"
 python training_vqgan.py $PARAM_STRING --run-name "\$runname" > "\$sd/output.txt" 2>&1
 
-# Check if training completed successfully
+# Write success/failure status to a file for reference
 if [ \$? -eq 0 ]; then
-    echo "Training completed successfully. Submitting evaluation job."
-    
-    # Submit the evaluation job
-    sbatch $EVAL_SCRIPT "\$runname"
+    echo "Training completed successfully at \$(date)" > "\$sd/training_status.txt"
+    exit 0
 else
-    echo "Training failed with exit code \$?"
+    echo "Training failed with exit code \$? at \$(date)" > "\$sd/training_status.txt"
+    exit 1
 fi
 EOL
 
@@ -155,15 +153,8 @@ EOL
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1
 
-# Check if model name is provided
-if [ -z "\$1" ]; then
-    echo "Error: Model name must be provided as an argument"
-    echo "Usage: sbatch eval.sh <model_name>"
-    exit 1
-fi
-
-# Set model name from command line argument
-model_name=\$1
+# Model name is passed from the batch submit script
+model_name="$RUNNAME"
 echo "Evaluating model: \$model_name"
 
 # Setup environment
@@ -190,11 +181,22 @@ EOL
     
     # Submit or print the job command
     if [ "$DRY_RUN" = true ]; then
-        echo "Would submit job: sbatch $JOB_SCRIPT"
+        echo "Would submit training job: sbatch $JOB_SCRIPT"
+        echo "Would submit evaluation job: sbatch --dependency=afterok:\$JOBID $EVAL_SCRIPT"
     else
-        echo "Submitting job: sbatch $JOB_SCRIPT"
-        JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
-        echo "Submitted job $JOB_NAME with ID: $JOBID"
+        echo "Submitting training job: sbatch $JOB_SCRIPT"
+        TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
+        
+        if [ -n "$TRAIN_JOBID" ]; then
+            echo "Submitted training job $JOB_NAME with ID: $TRAIN_JOBID"
+            
+            # Submit evaluation job with dependency on training job
+            echo "Submitting evaluation job with dependency on job $TRAIN_JOBID"
+            EVAL_JOBID=$(sbatch --dependency=afterok:$TRAIN_JOBID "$EVAL_SCRIPT" | awk '{print $4}')
+            echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
+        else
+            echo "Error: Failed to submit training job $JOB_NAME"
+        fi
     fi
     
 done < "$CONFIG_FILE"

@@ -1,5 +1,6 @@
 # Configuration file for VQGAN ablation study
 # Format: experiment_name:param1=value1,param2=value2,param3=value3
+# ALL NAMES MUST BE DIFFERENT
 
 # Baseline with default parameters
 baseline:
