@@ -98,7 +98,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         fi
     done
     
-    # Create the training job script with exclusive resource allocation
+    # Create the training job script with node exclusivity
     cat > "$JOB_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
@@ -106,12 +106,13 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
 #SBATCH -N 1
 #SBATCH -n 16
-#SBATCH --exclusive=user
+#SBATCH --exclusive
 #SBATCH -t 12:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
+#SBATCH --nodes=1-1
 #SBATCH --mail-user=adrake17@umd.edu
 #SBATCH --mail-type=END
 

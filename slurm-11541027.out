@@ -1,0 +1,80 @@
+Created temporary directory for job scripts: /tmp/tmp.M9nPa03lEs
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_baseline.sh
+Submitted training job baseline with ID: 11541029
+Submitting evaluation job with dependency on job 11541029
+Submitted evaluation job for baseline with ID: 11541030
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_latent_64.sh
+Submitted training job latent_64 with ID: 11541031
+Submitting evaluation job with dependency on job 11541031
+Submitted evaluation job for latent_64 with ID: 11541032
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_latent_16.sh
+Submitted training job latent_16 with ID: 11541033
+Submitting evaluation job with dependency on job 11541033
+Submitted evaluation job for latent_16 with ID: 11541034
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_codebook_128.sh
+Submitted training job codebook_128 with ID: 11541035
+Submitting evaluation job with dependency on job 11541035
+Submitted evaluation job for codebook_128 with ID: 11541036
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_codebook_32.sh
+Submitted training job codebook_32 with ID: 11541037
+Submitting evaluation job with dependency on job 11541037
+Submitted evaluation job for codebook_32 with ID: 11541038
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_lr_med.sh
+Submitted training job lr_med with ID: 11541039
+Submitting evaluation job with dependency on job 11541039
+Submitted evaluation job for lr_med with ID: 11541040
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_lr_high.sh
+Submitted training job lr_high with ID: 11541041
+Submitting evaluation job with dependency on job 11541041
+Submitted evaluation job for lr_high with ID: 11541042
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_disc_early.sh
+Submitted training job disc_early with ID: 11541043
+Submitting evaluation job with dependency on job 11541043
+Submitted evaluation job for disc_early with ID: 11541044
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_disc_none.sh
+Submitted training job disc_none with ID: 11541045
+Submitting evaluation job with dependency on job 11541045
+Submitted evaluation job for disc_none with ID: 11541046
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_spec_norm_disc.sh
+Submitted training job spec_norm_disc with ID: 11541047
+Submitting evaluation job with dependency on job 11541047
+Submitted evaluation job for spec_norm_disc with ID: 11541048
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_spec_norm_half_disc.sh
+Submitted training job spec_norm_half_disc with ID: 11541049
+Submitting evaluation job with dependency on job 11541049
+Submitted evaluation job for spec_norm_half_disc with ID: 11541050
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_spec_norm_no_disc.sh
+Submitted training job spec_norm_no_disc with ID: 11541051
+Submitting evaluation job with dependency on job 11541051
+Submitted evaluation job for spec_norm_no_disc with ID: 11541052
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_net_med.sh
+Submitted training job net_med with ID: 11541053
+Submitting evaluation job with dependency on job 11541053
+Submitted evaluation job for net_med with ID: 11541054
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_net_hybrid.sh
+Submitted training job net_hybrid with ID: 11541055
+Submitting evaluation job with dependency on job 11541055
+Submitted evaluation job for net_hybrid with ID: 11541056
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_net_small.sh
+Submitted training job net_small with ID: 11541057
+Submitting evaluation job with dependency on job 11541057
+Submitted evaluation job for net_small with ID: 11541058
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_res_more.sh
+Submitted training job res_more with ID: 11541059
+Submitting evaluation job with dependency on job 11541059
+Submitted evaluation job for res_more with ID: 11541060
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_res_less.sh
+Submitted training job res_less with ID: 11541061
+Submitting evaluation job with dependency on job 11541061
+Submitted evaluation job for res_less with ID: 11541062
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_attn_med.sh
+Submitted training job attn_med with ID: 11541063
+Submitting evaluation job with dependency on job 11541063
+Submitted evaluation job for attn_med with ID: 11541064
+Submitting training job: sbatch /tmp/tmp.M9nPa03lEs/run_attn_high.sh
+Submitted training job attn_high with ID: 11541065
+Submitting evaluation job with dependency on job 11541065
+Submitted evaluation job for attn_high with ID: 11541066
+Job submission process completed.
+Temporary job scripts are stored in: /tmp/tmp.M9nPa03lEs
+You may delete this directory when all jobs have completed.
