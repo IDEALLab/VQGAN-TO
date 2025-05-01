@@ -224,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
     parser.add_argument('--batch_size', type=int, default=16, help='Input batch size for training (default: 6)')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
-    parser.add_argument('--learning_rate', type=float, default=2e-04, help='Learning rate (default: 0.0002)')
+    parser.add_argument('--learning_rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
     parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
     parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
     parser.add_argument('--disc_start', type=int, default=0, help='When to start the discriminator (default: 0)')

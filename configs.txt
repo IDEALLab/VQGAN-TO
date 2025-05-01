@@ -14,7 +14,7 @@ codebook_128:num_codebook_vectors=128
 codebook_32:num_codebook_vectors=32
 
 # 3) Learning rate ablation
-lr_low:learning_rate=2e-05
+lr_med:learning_rate=2e-04
 lr_high:learning_rate=2e-03
 
 # 4) Discriminator start ablation (5*215=1075, 999*215=214785)

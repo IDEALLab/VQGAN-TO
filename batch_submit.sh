@@ -1,6 +1,7 @@
 #!/bin/bash
 # Script to submit multiple VQGAN training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
+# Modified to ensure exclusive GPU and CPU resource allocation on Zaratan
 
 # Function to print usage information
 function print_usage() {
@@ -97,7 +98,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         fi
     done
     
-    # Create the training job script
+    # Create the training job script with exclusive resource allocation
     cat > "$JOB_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
@@ -105,10 +106,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
 #SBATCH -N 1
 #SBATCH -n 16
-#SBATCH -t 24:00:00
+#SBATCH --exclusive=user
+#SBATCH -t 12:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1
+#SBATCH --gpu-bind=verbose,per_task:1
 #SBATCH --mail-user=adrake17@umd.edu
 #SBATCH --mail-type=END
 
@@ -118,6 +121,12 @@ echo "Starting job with name: \$runname"
 wd=~/scratch/VQGAN/src
 sd=~/scratch/VQGAN/saves/\$runname
 mkdir -p "\$sd"
+
+# Print resource allocation information
+echo "SLURM_JOB_ID: \$SLURM_JOB_ID"
+echo "SLURM_JOB_NODELIST: \$SLURM_JOB_NODELIST"
+echo "CUDA_VISIBLE_DEVICES: \$CUDA_VISIBLE_DEVICES"
+nvidia-smi
 
 # Copy this job script to the save directory for reference
 cp "$JOB_SCRIPT" "\$sd/job_script.sh"
@@ -141,21 +150,29 @@ else
 fi
 EOL
 
-    # Create the evaluation job script
+    # Create the evaluation job script with exclusive resource allocation
     cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=eval_${JOB_NAME}
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
 #SBATCH -N 1
 #SBATCH -n 16
-#SBATCH -t 1:00:00
+#SBATCH --exclusive=user
+#SBATCH -t 0:30:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1
+#SBATCH --gpu-bind=verbose,per_task:1
 
 # Model name is passed from the batch submit script
 model_name="$RUNNAME"
 echo "Evaluating model: \$model_name"
+
+# Print resource allocation information
+echo "SLURM_JOB_ID: \$SLURM_JOB_ID"
+echo "SLURM_JOB_NODELIST: \$SLURM_JOB_NODELIST"
+echo "CUDA_VISIBLE_DEVICES: \$CUDA_VISIBLE_DEVICES"
+nvidia-smi
 
 # Setup environment
 . ~/.bashrc
