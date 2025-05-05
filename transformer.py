@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mingpt import GPT
+from nanogpt import GPT, GPTConfig
 from vqgan import VQGAN
 
 
@@ -13,14 +13,17 @@ class VQGANTransformer(nn.Module):
 
         self.vqgan = self.load_vqgan(args)
 
-        transformer_config = {
-            "vocab_size": args.num_codebook_vectors,
-            "block_size": 512,
-            "n_layer": 24,
-            "n_head": 16,
-            "n_embd": 1024
-        }
-        self.transformer = GPT(**transformer_config)
+        # Create config object for NanoGPT
+        transformer_config = GPTConfig(
+            vocab_size=args.num_codebook_vectors,
+            block_size=1024,
+            n_layer=12,
+            n_head=12,
+            n_embd=768,
+            dropout=0.3,  # Add dropout parameter (default in nanoGPT)
+            bias=True     # Add bias parameter (default in nanoGPT)
+        )
+        self.transformer = GPT(transformer_config)
 
         self.pkeep = args.pkeep
 
@@ -59,7 +62,9 @@ class VQGANTransformer(nn.Module):
 
         target = indices
 
-        logits, _ = self.transformer(new_indices[:, :-1])
+        # NanoGPT forward doesn't use embeddings parameter, but takes targets
+        # We're ignoring the loss returned by NanoGPT
+        logits, _ = self.transformer(new_indices[:, :-1], None)
 
         return logits, target
 
@@ -73,8 +78,13 @@ class VQGANTransformer(nn.Module):
     def sample(self, x, c, steps, temperature=1.0, top_k=100):
         self.transformer.eval()
         x = torch.cat((c, x), dim=1)
+        
+        # Option 1: Use NanoGPT's built-in generate method
+        # return self.transformer.generate(x, steps, temperature, top_k)[:, c.shape[1]:]
+        
+        # Option 2: Keep the original sampling logic for compatibility
         for k in range(steps):
-            logits, _ = self.transformer(x)
+            logits, _ = self.transformer(x, None)
             logits = logits[:, -1, :] / temperature
 
             if top_k is not None:
@@ -114,19 +124,3 @@ class VQGANTransformer(nn.Module):
         log["full_sample"] = full_sample
 
         return log, torch.concat((x, x_rec, half_sample, full_sample))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
