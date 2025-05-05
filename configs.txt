@@ -3,38 +3,36 @@
 # ALL NAMES MUST BE DIFFERENT
 
 # Baseline with default parameters
-baseline:
+# baseline:
 
 # 1) Latent dimension ablation
-latent_64:latent_dim=64
-latent_16:latent_dim=16
+# latent_64:latent_dim=64
+# latent_16:latent_dim=16
 
 # 2) Codebook vector count ablation
-codebook_128:num_codebook_vectors=128
-codebook_32:num_codebook_vectors=32
+# codebook_128:num_codebook_vectors=128
+# codebook_32:num_codebook_vectors=32
 
 # 3) Learning rate ablation
-lr_med:learning_rate=2e-04
-lr_high:learning_rate=2e-03
+# lr_med:learning_rate=2e-04
+# lr_high:learning_rate=2e-03
 
 # 4) Discriminator start ablation (5*215=1075, 999*215=214785)
-disc_early:disc_start=1075
-disc_none:disc_start=214785
+# disc_early:disc_start=1075
+# disc_none:disc_start=214785
 
-# 5) Spectral normalization with different discriminator settings (50*215=10750)
-spec_norm_disc:spectral_norm=True
-spec_norm_half_disc:spectral_norm=True,disc_start=10750
-spec_norm_no_disc:spectral_norm=True,disc_start=214785
+# 5) Spectral normalization of the discriminator
+spec_norm_disc: spectral_norm_disc=True
 
 # 6) Network size ablations (medium, hybrid, and small, respectively)
-net_med:decoder_channels=256 256 256 128 128,encoder_channels=128 128 128 256 256 256
-net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256
-net_small:decoder_channels=128 128 128 64 64,encoder_channels=64 64 64 128 128 128
+# net_med:decoder_channels=256 256 256 128 128,encoder_channels=128 128 128 256 256 256
+# net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256
+# net_small:decoder_channels=128 128 128 64 64,encoder_channels=64 64 64 128 128 128
 
 # 7) Residual blocks ablation
-res_more:decoder_num_res_blocks=4,encoder_num_res_blocks=3
-res_less:decoder_num_res_blocks=2,encoder_num_res_blocks=1
+# res_more:decoder_num_res_blocks=4,encoder_num_res_blocks=3
+# res_less:decoder_num_res_blocks=2,encoder_num_res_blocks=1
 
 # 8) Attention resolution ablation
-attn_med:decoder_attn_resolutions=16 32,encoder_attn_resolutions=16 32
-attn_high:decoder_attn_resolutions=16 32 64,encoder_attn_resolutions=16 32 64
+# attn_med:decoder_attn_resolutions=16 32,encoder_attn_resolutions=16 32
+# attn_high:decoder_attn_resolutions=16 32 64,encoder_attn_resolutions=16 32 64
