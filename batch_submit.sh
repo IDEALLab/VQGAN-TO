@@ -1,7 +1,6 @@
 #!/bin/bash
 # Script to submit multiple VQGAN training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
-# Modified to ensure exclusive GPU and CPU resource allocation on Zaratan
 
 # Function to print usage information
 function print_usage() {
@@ -98,21 +97,20 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         fi
     done
     
-    # Create the training job script with node exclusivity
+    # Create the training job script
     cat > "$JOB_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
-#SBATCH --array=1-1
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
-#SBATCH -N 1
-#SBATCH -n 16
-#SBATCH --exclusive
 #SBATCH -t 12:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
-#SBATCH --gpus=h100:1
+#SBATCH --exclusive
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
-#SBATCH --nodes=1-1
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -149,18 +147,19 @@ else
 fi
 EOL
 
-    # Create the evaluation job script with exclusive resource allocation
+    # Create the evaluation job script
     cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=eval_${JOB_NAME}
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
-#SBATCH -N 1
-#SBATCH -n 16
-#SBATCH --exclusive=user
 #SBATCH -t 0:30:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
-#SBATCH --gpus=h100:1
+#SBATCH --exclusive
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 # Model name is passed from the batch submit script
