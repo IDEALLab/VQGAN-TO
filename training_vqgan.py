@@ -9,7 +9,6 @@ from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.amp import GradScaler, autocast
 from discriminator import Discriminator
 from lpips import LPIPS, GreyscaleLPIPS
 from vqgan import VQGAN
@@ -83,7 +82,6 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
-        scaler = GradScaler()
         dataloader, test_dataloader, means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
         
@@ -92,39 +90,37 @@ class TrainVQGAN:
             epoch_g_losses = []
             for i, (imgs, c) in enumerate(dataloader):
                 imgs = imgs.to(device=args.device, non_blocking=True)
-                with autocast(device_type=args.device, dtype=torch.float16):
-                    decoded_images, _, q_loss = self.vqgan(imgs)
+                decoded_images, _, q_loss = self.vqgan(imgs)
 
-                    disc_real = self.discriminator(imgs)
-                    disc_fake = self.discriminator(decoded_images)
+                disc_real = self.discriminator(imgs)
+                disc_fake = self.discriminator(decoded_images)
 
-                    disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
+                disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
 
-                    perceptual_loss = self.perceptual_loss(imgs, decoded_images)
-                    rec_loss = torch.abs(imgs - decoded_images)
-                    perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
-                    perceptual_rec_loss = perceptual_rec_loss.mean()
-                    g_loss = -torch.mean(disc_fake)
+                perceptual_loss = self.perceptual_loss(imgs, decoded_images)
+                rec_loss = torch.abs(imgs - decoded_images)
+                perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
+                perceptual_rec_loss = perceptual_rec_loss.mean()
+                g_loss = -torch.mean(disc_fake)
 
-                    λ = self.vqgan.calculate_lambda(perceptual_rec_loss, g_loss)
-                    vq_loss = perceptual_rec_loss + q_loss + disc_factor * λ * g_loss
+                λ = self.vqgan.calculate_lambda(perceptual_rec_loss, g_loss)
+                vq_loss = perceptual_rec_loss + q_loss + disc_factor * λ * g_loss
 
-                    d_loss_real = torch.mean(F.relu(1. - disc_real))
-                    d_loss_fake = torch.mean(F.relu(1. + disc_fake))
-                    gan_loss = disc_factor * 0.5*(d_loss_real + d_loss_fake)
+                d_loss_real = torch.mean(F.relu(1. - disc_real))
+                d_loss_fake = torch.mean(F.relu(1. + disc_fake))
+                gan_loss = disc_factor * 0.5*(d_loss_real + d_loss_fake)
 
-                    self.opt_vq.zero_grad()
-                    scaler.scale(vq_loss).backward(retain_graph=True)
+                self.opt_vq.zero_grad()
+                vq_loss.backward(retain_graph=True)
 
-                    self.opt_disc.zero_grad()
-                    scaler.scale(gan_loss).backward()
+                self.opt_disc.zero_grad()
+                gan_loss.backward()
 
-                    scaler.step(self.opt_vq)
-                    scaler.step(self.opt_disc)
-                    scaler.update()
+                self.opt_vq.step()
+                self.opt_disc.step()
 
-                    epoch_d_losses.append(gan_loss.item())
-                    epoch_g_losses.append(vq_loss.item())
+                epoch_d_losses.append(gan_loss.item())
+                epoch_g_losses.append(vq_loss.item())
 
                 if args.track:
                     batches_done = epoch * len(dataloader) + i

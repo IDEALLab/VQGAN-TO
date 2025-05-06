@@ -11,7 +11,8 @@ class VQGANTransformer(nn.Module):
 
         self.sos_token = args.sos_token
 
-        self.vqgan = self.load_vqgan(args)
+        self.vqgan = VQGAN(args).to(device=args.device)
+        self.load_vqgan(args)
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
@@ -27,12 +28,28 @@ class VQGANTransformer(nn.Module):
 
         self.pkeep = args.pkeep
 
-    @staticmethod
-    def load_vqgan(args):
-        model = VQGAN(args)
-        model.load_checkpoint(args.checkpoint_path)
-        model = model.eval()
-        return model
+
+    def load_vqgan(self, args):
+        checkpoint = torch.load(args.checkpoint_path, map_location=args.device, weights_only=True)
+        
+        # Debug: Print checkpoint keys and model state_dict keys
+        print(f"Checkpoint keys: {checkpoint.keys()}")
+        
+        state_dict = checkpoint["generator"]
+        if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
+            print("Detected _orig_mod. prefix, removing it from keys...")
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                new_k = k.replace("_orig_mod.", "")
+                new_state_dict[new_k] = v
+            state_dict = new_state_dict
+        
+        self.vqgan.load_state_dict(state_dict, strict=False)
+        self.vqgan.eval()  # Set model to evaluation mode
+        
+        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
+            self.vqgan = torch.compile(self.vqgan)
+    
 
     @torch.no_grad()
     def encode_to_z(self, x):

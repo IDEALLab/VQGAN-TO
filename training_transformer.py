@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import utils as vutils
 from transformer import VQGANTransformer
-from utils import load_data #, plot_images
+from utils import get_data #, plot_images
 
 
 class TrainTransformer:
@@ -41,6 +41,8 @@ class TrainTransformer:
         no_decay.add("pos_emb")
 
         param_dict = {pn: p for pn, p in self.model.transformer.named_parameters()}
+        decay = {pn for pn in decay if pn in param_dict}
+        no_decay = {pn for pn in no_decay if pn in param_dict}
 
         optim_groups = [
             {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": 0.01},
@@ -51,10 +53,10 @@ class TrainTransformer:
         return optimizer
 
     def train(self, args):
-        train_dataset = load_data(args)
+        train_dataset, test_dataset, means, stds = get_data(args)
         for epoch in range(args.epochs):
             with tqdm(range(len(train_dataset))) as pbar:
-                for i, imgs in zip(pbar, train_dataset):
+                for i, (imgs, c) in zip(pbar, train_dataset):
                     self.optim.zero_grad()
                     imgs = imgs.to(device=args.device)
                     logits, targets = self.model(imgs)
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--spectral_decoder', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
@@ -113,14 +115,14 @@ if __name__ == '__main__':
 
     # Training-specific args
     parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_norm_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
+    parser.add_argument('--spectral_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
     # Transformer-specific args
     parser.add_argument('--model_name', type=str, default="baseline", help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
     parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
-    parser.add_argument('--sos-token', type=int, default=0, help='Start of Sentence token.')
+    parser.add_argument('--sos_token', type=int, default=0, help='Start of Sentence token.')
 
     args = parser.parse_args()
     args.checkpoint_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
