@@ -1,13 +1,16 @@
+# training_transformer.py
+
 import os
 import numpy as np
 from tqdm import tqdm
 import argparse
+from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import utils as vutils
 from transformer import VQGANTransformer
-from utils import load_data, plot_images
+from utils import load_data #, plot_images
 
 
 class TrainTransformer:
@@ -62,36 +65,65 @@ class TrainTransformer:
                     pbar.update(0)
             log, sampled_imgs = self.model.log_images(imgs[0][None])
             vutils.save_image(sampled_imgs, os.path.join("results", f"transformer_{epoch}.jpg"), nrow=4)
-            plot_images(log)
+            # plot_images(log)
             torch.save(self.model.state_dict(), os.path.join("checkpoints", f"transformer_{epoch}.pt"))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VQGAN")
-    parser.add_argument('--latent-dim', type=int, default=256, help='Latent dimension n_z.')
-    parser.add_argument('--image-size', type=int, default=256, help='Image height and width.)')
-    parser.add_argument('--num-codebook-vectors', type=int, default=1024, help='Number of codebook vectors.')
-    parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar.')
-    parser.add_argument('--image-channels', type=int, default=3, help='Number of channels of images.')
-    parser.add_argument('--dataset-path', type=str, default='./data', help='Path to data.')
-    parser.add_argument('--checkpoint-path', type=str, default='./checkpoints/last_ckpt.pt', help='Path to checkpoint.')
+    parser.add_argument('--latent_dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
+    parser.add_argument('--image_size', type=int, default=256, help='Image height and width (default: 256)')
+    parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
+    parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
+    parser.add_argument('--image_channels', type=int, default=1, help='Number of channels of images (default: 3)')
+    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: /data)') # New dataset path
     parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
-    parser.add_argument('--batch-size', type=int, default=20, help='Input batch size for training.')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train.')
-    parser.add_argument('--learning-rate', type=float, default=2.25e-05, help='Learning rate.')
-    parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param.')
-    parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param.')
-    parser.add_argument('--disc-start', type=int, default=10000, help='When to start the discriminator.')
-    parser.add_argument('--disc-factor', type=float, default=1., help='Weighting factor for the Discriminator.')
-    parser.add_argument('--l2-loss-factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
-    parser.add_argument('--perceptual-loss-factor', type=float, default=1., help='Weighting factor for perceptual loss.')
+    parser.add_argument('--batch_size', type=int, default=16, help='Input batch size for training (default: 6)')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
+    parser.add_argument('--learning_rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
+    parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
+    parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
+    parser.add_argument('--disc_start', type=int, default=0, help='When to start the discriminator (default: 0)')
+    parser.add_argument('--disc_factor', type=float, default=1., help='')
+    parser.add_argument('--rec_loss_factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
+    parser.add_argument('--perceptual_loss_factor', type=float, default=1., help='Weighting factor for perceptual loss.')
 
-    parser.add_argument('--pkeep', type=float, default=0.5, help='Percentage for how much latent codes to keep.')
+    # New arguments
+    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy', help='Path to conditions (default: ../data/inp_paras_4579.npy)')
+    parser.add_argument('--problem_id', type=str, default='mto', help='Problem ID (default: mto)')
+    parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
+    parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
+    parser.add_argument('--track', type=bool, default=True, help='track or not (default: True)')
+    parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
+    parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
+    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
+
+    # Decoder-specific args
+    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
+    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
+    parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
+    parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
+
+    # Encoder-specific args
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
+    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
+    parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
+    parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
+
+    # Training-specific args
+    parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
+    parser.add_argument('--spectral_norm_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
+    parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
+    parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
+
+    # Transformer-specific args
+    parser.add_argument('--model_name', type=str, default="baseline", help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
+    parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
     parser.add_argument('--sos-token', type=int, default=0, help='Start of Sentence token.')
 
     args = parser.parse_args()
-    args.dataset_path = r"../data"
-    args.checkpoint_path = r"../saves/vqgan_last_ckpt.pt"
+    args.checkpoint_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
 
     train_transformer = TrainTransformer(args)
 

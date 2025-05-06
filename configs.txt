@@ -22,7 +22,7 @@
 # disc_none:disc_start=214785
 
 # 5) Spectral normalization of the discriminator
-spec_norm_disc: spectral_norm_disc=True
+spec_norm_disc:spectral_disc=True
 
 # 6) Network size ablations (medium, hybrid, and small, respectively)
 # net_med:decoder_channels=256 256 256 128 128,encoder_channels=128 128 128 256 256 256

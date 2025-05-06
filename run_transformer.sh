@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=train_vqgan
+#SBATCH --job-name=train_transformer
 #SBATCH --array=1-1
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
 #SBATCH -N 1
@@ -8,11 +8,9 @@
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --gpus=h100:1
-#SBATCH --mail-user=adrake17@umd.edu
-#SBATCH --mail-type=END
 
 . ~/.bashrc
-runname=$(date +"%Y-%m-%d_%H-%M-%S")
+runname=$(date +"Tr-%Y-%m-%d_%H-%M-%S")
 wd=~/scratch/VQGAN/src
 sd=~/scratch/VQGAN/saves/$runname
 mkdir -p "$sd"
@@ -21,4 +19,4 @@ mkdir -p "$sd"
 module unload python
 source ~/vqgan_env/bin/activate
 cd "$wd"
-python training_vqgan.py --run_name "$runname" > "$sd/output.txt" 2>&1
+python training_transformer.py --run_name "$runname" > "$sd/output.txt" 2>&1

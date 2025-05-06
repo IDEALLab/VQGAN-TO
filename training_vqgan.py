@@ -229,7 +229,7 @@ if __name__ == '__main__':
     parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
     parser.add_argument('--disc_start', type=int, default=0, help='When to start the discriminator (default: 0)')
     parser.add_argument('--disc_factor', type=float, default=1., help='')
-    parser.add_argument('--rec_loss-factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
+    parser.add_argument('--rec_loss_factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
     parser.add_argument('--perceptual_loss_factor', type=float, default=1., help='Weighting factor for perceptual loss.')
 
     # New arguments
@@ -240,10 +240,10 @@ if __name__ == '__main__':
     parser.add_argument('--track', type=bool, default=True, help='track or not (default: True)')
     parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
-    parser.add_argument('--run-name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
+    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_norm', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--spectral_decoder', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 
     # Training-specific args
     parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_norm_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
+    parser.add_argument('--spectral_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
     parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 

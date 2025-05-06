@@ -113,8 +113,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --gpus=h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 #SBATCH --nodes=1-1
-#SBATCH --mail-user=adrake17@umd.edu
-#SBATCH --mail-type=END
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -138,8 +136,8 @@ source ~/vqgan_env/bin/activate
 cd "\$wd"
 
 # Run training with the specified parameters
-echo "Running with parameters: $PARAM_STRING --run-name \$runname"
-python training_vqgan.py $PARAM_STRING --run-name "\$runname" > "\$sd/output.txt" 2>&1
+echo "Running with parameters: $PARAM_STRING --run_name \$runname"
+python training_vqgan.py $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
 
 # Write success/failure status to a file for reference
 if [ \$? -eq 0 ]; then
