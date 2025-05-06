@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.so
+*.out
 
 # Environments
 .env

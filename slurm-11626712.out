@@ -1,8 +1,0 @@
-Created temporary directory for job scripts: /tmp/tmp.LGqsf2aWGa
-Submitting training job: sbatch /tmp/tmp.LGqsf2aWGa/run_spec_norm_disc.sh
-Submitted training job spec_norm_disc with ID: 11626713
-Submitting evaluation job with dependency on job 11626713
-Submitted evaluation job for spec_norm_disc with ID: 11626714
-Job submission process completed.
-Temporary job scripts are stored in: /tmp/tmp.LGqsf2aWGa
-You may delete this directory when all jobs have completed.
