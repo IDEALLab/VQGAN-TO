@@ -190,7 +190,9 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         else:
             # inference-time mini-optimization: only forward the lm_head on the very last position
-            logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
+            logits = self.lm_head(x)
+            # NOTE BY ARTHUR DRAKE: The below line of code in the newer version of nanogpt broke the previous implementation by returning the wrong dimensions. Reverting to old version: logits = self.lm_head(x)
+            # logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
             loss = None
 
         return logits, loss
