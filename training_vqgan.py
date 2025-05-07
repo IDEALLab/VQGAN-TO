@@ -285,3 +285,5 @@ if __name__ == '__main__':
     # saves/2025-04-30_10-54-36: Same as saves/2025-04-24_19-28-29 but with experimental least volume loss (factor 1e-1) and codebook vectors raised back to 1024
         # Requires too much effort to balance loss with other losses and spectral norm, abandoned
 
+    # Next idea: No discriminator, specnorm for decoder TBD, hybrid size hidden layers, 4 latent dim, ~64 codebook vectors, learning rate TBD
+        # Thus try 8 combinations with specnorm for decoder True/False, learning rate 2e-4/2.25e-5, and latent dim 2/4
