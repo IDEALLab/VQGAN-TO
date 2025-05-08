@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lpips import LPIPS, GreyscaleLPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data, print_args, set_precision, set_all_seeds
+from utils import get_data, plot_data, print_args, set_precision, set_all_seeds, str2bool
 
 class EvalVQGAN:
     def __init__(self, args):
@@ -264,13 +264,12 @@ if __name__ == '__main__':
     parser.add_argument('--problem_id', type=str, default='mto', help='Problem ID (default: mto)')
     parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
-    parser.add_argument('--track', type=bool, default=True, help='track or not (default: True)')
-    parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
+    parser.add_argument('--track', type=str2bool, default=True, help='track or not (default: True)')
+    parser.add_argument('--save_model', type=str2bool, default=True, help='Save model checkpoint (default: True)')
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
-    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_decoder', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
+    parser.add_argument('--spectral_decoder', type=str2bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
@@ -282,11 +281,14 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
+    # Evaluation-specific args
+    parser.add_argument('--model_name', type=str, default="baseline", help='Saved model name for VQGAN Stage 1 (default: baseline)')
+
     # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
-    parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
-    parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
+    parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
+    parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
+    parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
+    parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
     
     args = parser.parse_args()
     print_args(args, "Initial Evaluation Arguments")

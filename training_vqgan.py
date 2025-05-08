@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from discriminator import Discriminator
 from lpips import LPIPS, GreyscaleLPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds
+from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, str2bool
 
 
 class TrainVQGAN:
@@ -233,13 +233,12 @@ if __name__ == '__main__':
     parser.add_argument('--problem_id', type=str, default='mto', help='Problem ID (default: mto)')
     parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
-    parser.add_argument('--track', type=bool, default=True, help='track or not (default: True)')
-    parser.add_argument('--save_model', type=bool, default=True, help='Save model checkpoint (default: True)')
+    parser.add_argument('--track', type=str2bool, default=True, help='track or not (default: True)')
+    parser.add_argument('--save_model', type=str2bool, default=True, help='Save model checkpoint (default: True)')
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
     parser.add_argument('--run_name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_decoder', type=bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
@@ -252,13 +251,10 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
 
     # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_disc', type=bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
-    parser.add_argument('--use_DAE', type=bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
-    parser.add_argument('--use_Online', type=bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
-
-
-    # TODO: Add arguments for encoder/decoder channel sizes, other options as in previous implementation
+    parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
+    parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
+    parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
+    parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
     args = parser.parse_args()
     print_args(args, "Training Arguments")
@@ -268,22 +264,22 @@ if __name__ == '__main__':
     # saves/2025-04-23_12-10-46: Baseline with Greyscale LPIPS
     # saves/2025-04-24_06-36-52: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32 ONLY
         # Satisfactory
-    # saves/2025-04-23_13-04-49: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, disc start at 3*215
+    # saves/2025-04-23_13-04-49: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, disc start at 3*215 [NOW OBSOLETE]
         # Leads to some generator degradation
-    # saves/2025-04-23_20-27-33: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, NO discriminator
+    # saves/2025-04-23_20-27-33: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, NO discriminator [NOW OBSOLETE]
         # Among the best so far but deviates from "GAN" in VQGAN
     # saves/2025-04-24_14-49-04: Baseline with Greyscale LPIPS, latent dim reduced from 256 to 16, 512-width layers reduced to 256, attn dims changed from [16] to []
-    # saves/2025-04-24_17-46-54: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 64, latent dim reduced from 256 to 16, 512-width layers reduced to 256, spectral norm enabled, NO discriminator, learning rate increased from 2.25e-5 to 2e-4
-    # saves/2025-04-24_19-28-29: Same as above but with 32 codebook vectors
+    # saves/2025-04-24_17-46-54: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 64, latent dim reduced from 256 to 16, 512-width layers reduced to 256, spectral norm enabled, NO discriminator, learning rate increased from 2.25e-5 to 2e-4 [NOW OBSOLETE]
+    # saves/2025-04-24_19-28-29: Same as above but with 32 codebook vectors [NOW OBSOLETE]
 
-    # saves/2025-04-28_11-30-31: Same as above but with 16 codebook vectors
-    # saves/2025-04-28_11-31-01: Same as above but with batch size doubled to 32, sample interval 215 --> 108
+    # saves/2025-04-28_11-30-31: Same as above but with 16 codebook vectors [NOW OBSOLETE]
+    # saves/2025-04-28_11-31-01: Same as above but with batch size doubled to 32, sample interval 215 --> 108 [NOW OBSOLETE]
 
-    # saves/2025-04-29_18-42-49: Same as saves/2025-04-24_19-28-29 but with attn resolutions [16] --> [16, 32, 64]
+    # saves/2025-04-29_18-42-49: Same as saves/2025-04-24_19-28-29 but with attn resolutions [16] --> [16, 32, 64] [NOW OBSOLETE]
         # Little to no improvement at a significant training time cost
 
-    # saves/2025-04-30_10-54-36: Same as saves/2025-04-24_19-28-29 but with experimental least volume loss (factor 1e-1) and codebook vectors raised back to 1024
+    # saves/2025-04-30_10-54-36: Same as saves/2025-04-24_19-28-29 but with experimental least volume loss (factor 1e-1) and codebook vectors raised back to 1024 [NOW OBSOLETE]
         # Requires too much effort to balance loss with other losses and spectral norm, abandoned
 
-    # Next idea: No discriminator, specnorm for decoder TBD, hybrid size hidden layers, 4 latent dim, ~64 codebook vectors, learning rate TBD
-        # Thus try 8 combinations with specnorm for decoder True/False, learning rate 2e-4/2.25e-5, and latent dim 2/4
+    # Next idea: No discriminator, specnorm for decoder NO (implementation too difficult and non-standard), hybrid size hidden layers, 8 latent dim, 64/32 codebook vectors, learning rate TBD
+        # Thus try 8 combinations with learning rate 2e-4/2.25e-5, latent dim 8/4, codebook vectors 64/32

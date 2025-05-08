@@ -39,6 +39,10 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    return v.lower() in ("yes", "true", "t", "1")
 
 # Now loads in the full dataset with conditions
 def get_data(args):

@@ -36,10 +36,7 @@ class VQGAN(nn.Module):
 
     def calculate_lambda(self, perceptual_loss, gan_loss):
         last_layer = self.decoder.model[-1]
-        if hasattr(last_layer, "weight_orig"):
-            last_layer_weight = last_layer.weight_orig  # SpectralNorm case
-        else:
-            last_layer_weight = last_layer.weight       # Normal Conv2D
+        last_layer_weight = last_layer.weight
         perceptual_loss_grads = torch.autograd.grad(perceptual_loss, last_layer_weight, retain_graph=True)[0]
         gan_loss_grads = torch.autograd.grad(gan_loss, last_layer_weight, retain_graph=True)[0]
 

@@ -17,6 +17,8 @@ function print_usage() {
     echo "# Each job is defined by JOB_NAME:param1=value1,param2=value2"
     echo "experiment1:batch_size=64,learning_rate=0.001,epochs=100"
     echo "experiment2:batch_size=128,learning_rate=0.0005,epochs=150"
+    echo "# Boolean parameters can use true/false, True/False, 0/1"
+    echo "experiment3:batch_size=64,use_feature=true,spectral_decoder=false"
 }
 
 # Parse command-line arguments
@@ -118,21 +120,31 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     # Prepare the parameter string for the Python command
     PARAM_STRING=""
     IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
+
+    PARAM_STRING=""
+    IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
+
     for pair in "${PARAM_PAIRS[@]}"; do
-        # Skip empty parameters (for baseline case)
         if [[ -z "$pair" ]]; then
             continue
         fi
-        
+
         KEY=${pair%%=*}
         VALUE=${pair#*=}
-        
-        # Handle space-separated lists (like decoder_channels)
+
+        # Normalize booleans
+        lower_value="${VALUE,,}"
+        if [[ "$lower_value" == "true" ]]; then
+            VALUE="True"
+        elif [[ "$lower_value" == "false" ]]; then
+            VALUE="False"
+        fi
+
+        # Add list values as multiple tokens (no quotes!)
         if [[ "$VALUE" == *" "* ]]; then
-            # For space-separated values, we need to pass each value separately
-            PARAM_STRING="$PARAM_STRING --$KEY $VALUE"
+            PARAM_STRING+=" --$KEY $VALUE"
         else
-            PARAM_STRING="$PARAM_STRING --$KEY $VALUE"
+            PARAM_STRING+=" --$KEY $VALUE"
         fi
     done
     
@@ -260,7 +272,7 @@ cd "\$wd"
 
 # Run evaluation
 echo "Starting evaluation at \$(date)"
-python eval_vqgan.py --model-name "\$model_name" > "\$eval_dir/eval_output.txt" 2>&1
+python eval_vqgan.py --model_name "\$model_name" > "\$eval_dir/eval_output.txt" 2>&1
 
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
