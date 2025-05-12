@@ -124,6 +124,15 @@ if __name__ == '__main__':
     parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
     parser.add_argument('--sos_token', type=int, default=0, help='Start of Sentence token.')
 
+    # CVQGAN-specific args
+    parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
+    parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
+    parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
+    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent dimension for CVQGAN (default: 4)')
+    parser.add_argument('--c_num_codebook_vectors', type=int, default=128, help='Number of codebook vectors for CVQGAN (default: 128)')
+    parser.add_argument('--c_fmap_dim', type=int, default=4, help='Feature map dimension for CVQGAN (default: 4)')
+
+
     args = parser.parse_args()
     args.checkpoint_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
 

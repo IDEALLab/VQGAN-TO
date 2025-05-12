@@ -10,14 +10,18 @@ latent_32:latent_dim=32
 latent_16:latent_dim=16
 latent_8:latent_dim=8
 latent_4:latent_dim=4
+latent_4_ND:latent_dim=4,disc_start=999999
 
 # 2) Codebook vector count ablation
 codebook_128:num_codebook_vectors=128
+codebook_64:num_codebook_vectors=64
 codebook_32:num_codebook_vectors=32
 
 # 3) Learning rate ablation
 lr_med:learning_rate=2e-04
 lr_high:learning_rate=2e-03
+lr_med_ND:learning_rate=2e-04,disc_start=999999
+lr_high_ND:learning_rate=2e-03,disc_start=999999
 
 # 4) Discriminator start ablation (5*215=1075, 999*215=214785)
 disc_early:disc_start=1075
@@ -52,3 +56,10 @@ c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,late
 
 # Also try latent_dim 4 or even 2? Start without discriminator
 # After this: pick the best above and test with different discriminator start times (0-5 epochs in or 0-5 * 215 steps). When using discriminator, likely stick to learning_rate=2.25e-05
+
+# From c6 (best): lower latent_dim to 2, 1, and double codebook vectors to 128, 256
+c9:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=2,num_codebook_vectors=128,learning_rate=2e-04,disc_start=999999
+c10:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=1,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
+
+#################### CVQGAN ############################
+cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=2150

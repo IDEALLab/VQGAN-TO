@@ -289,6 +289,15 @@ if __name__ == '__main__':
     parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
     parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
+
+    # CVQGAN-specific args
+    parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
+    parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
+    parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
+    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent dimension for CVQGAN (default: 4)')
+    parser.add_argument('--c_num_codebook_vectors', type=int, default=128, help='Number of codebook vectors for CVQGAN (default: 128)')
+    parser.add_argument('--c_fmap_dim', type=int, default=4, help='Feature map dimension for CVQGAN (default: 4)')
+
     
     args = parser.parse_args()
     print_args(args, "Initial Evaluation Arguments")

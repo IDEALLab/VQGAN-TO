@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from discriminator import Discriminator
-from lpips import LPIPS, GreyscaleLPIPS
+from lpips import LPIPS, GreyscaleLPIPS, NoLPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, str2bool
+from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, str2bool, plot_3d_scatter_comparison
 
 
 class TrainVQGAN:
@@ -23,7 +23,10 @@ class TrainVQGAN:
         self.vqgan = VQGAN(args).to(device=args.device)
         self.discriminator = Discriminator(args).to(device=args.device)
         self.discriminator.apply(weights_init)
-        self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
+        if args.is_c:
+            self.perceptual_loss = NoLPIPS().eval().to(device=args.device)
+        else:
+            self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
         self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': []}
 
@@ -88,7 +91,7 @@ class TrainVQGAN:
         for epoch in tqdm(range(args.epochs)):
             epoch_d_losses = []
             epoch_g_losses = []
-            for i, (imgs, c) in enumerate(dataloader):
+            for i, (imgs, _) in enumerate(dataloader):
                 imgs = imgs.to(device=args.device, non_blocking=True)
                 decoded_images, _, q_loss = self.vqgan(imgs)
 
@@ -131,24 +134,29 @@ class TrainVQGAN:
 
                     # This saves images of real vs. generated designs every sample_interval
                     if batches_done % args.sample_interval == 0:
-                        combined = np.stack([
-                            decoded_images[-1].cpu().detach().numpy(), 
-                            imgs[-1].cpu().detach().numpy()
-                        ])
-                        img_fname = os.path.join(self.results_dir, f"{batches_done}.png")
-                        # img_fname = os.path.join(self.results_dir, f"{batches_done}.tiff")
+                        if args.is_c:
+                            scatter_fname = os.path.join(self.results_dir, f"scatter_{batches_done}.png")
+                            plot_3d_scatter_comparison(decoded_images, imgs, scatter_fname)
+                        else:
+                            combined = np.stack([
+                                decoded_images[-1].cpu().detach().numpy(), 
+                                imgs[-1].cpu().detach().numpy()
+                            ])
+                            img_fname = os.path.join(self.results_dir, f"{batches_done}.png")
+                            # img_fname = os.path.join(self.results_dir, f"{batches_done}.tiff")
 
-                        plot_data(
-                            combined, 
-                            titles = ['Reconstruction', 'Real'], 
-                            ranges = [[0, 1], [0, 1]], 
-                            fname = img_fname,
-                            cbar = False, 
-                            dpi = 400, 
-                            mirror_image = True, 
-                            cmap = sns.color_palette("viridis", as_cmap=True), 
-                            fontsize = 20
-                        )
+
+                            plot_data(
+                                combined, 
+                                titles = ['Reconstruction', 'Real'], 
+                                ranges = [[0, 1], [0, 1]], 
+                                fname = img_fname,
+                                cbar = False, 
+                                dpi = 400, 
+                                mirror_image = True, 
+                                cmap = sns.color_palette("viridis", as_cmap=True), 
+                                fontsize = 20
+                            )
 
                         # --------------
                         #  Save models
@@ -216,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
     parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
     parser.add_argument('--image_channels', type=int, default=1, help='Number of channels of images (default: 3)')
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: /data)') # New dataset path
+    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: ../data/gamma_4579_half.npy)') # New dataset path
     parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
     parser.add_argument('--batch_size', type=int, default=16, help='Input batch size for training (default: 6)')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
@@ -255,6 +263,14 @@ if __name__ == '__main__':
     parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
     parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
     parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
+
+    # CVQGAN-specific args
+    parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
+    parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
+    parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
+    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent dimension for CVQGAN (default: 4)')
+    parser.add_argument('--c_num_codebook_vectors', type=int, default=64, help='Number of codebook vectors for CVQGAN (default: 64)')
+    parser.add_argument('--c_fmap_dim', type=int, default=1, help='Feature map dimension for CVQGAN (default: 1)')
 
     args = parser.parse_args()
     print_args(args, "Training Arguments")

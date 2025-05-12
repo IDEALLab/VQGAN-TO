@@ -95,6 +95,19 @@ class NonLocalBlock(nn.Module):
         A = A.reshape(b, c, h, w)
 
         return x + A
+    
+# NEW ADDITION FOR CONDITIONAL ENCODER/DECODER
+class LinearCombo(nn.Module):
+    """Regular fully connected layer combo."""
+    def __init__(self, in_features, out_features, alpha=0.2):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(in_features, out_features),
+            nn.LeakyReLU(alpha)
+        )
+
+    def forward(self, input):
+        return self.model(input)
 
 
 

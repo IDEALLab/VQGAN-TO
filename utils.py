@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
+from copy import deepcopy
         
 
 def set_precision():
@@ -46,9 +47,12 @@ def str2bool(v):
 
 # Now loads in the full dataset with conditions
 def get_data(args):
-    x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(-1, args.image_channels, args.image_size, args.image_size)
     c_orig = torch.from_numpy(np.load(args.conditions_path).astype(np.float32))
     c, means, stds = normalize(c_orig)
+    if args.is_c:
+        x = deepcopy(c)
+    else:
+        x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(-1, args.image_channels, args.image_size, args.image_size)
 
     generator = torch.Generator().manual_seed(args.seed)
     train_data, test_data = random_split(TensorDataset(x, c), [0.75, 0.25], generator=generator)
@@ -133,3 +137,27 @@ def print_args(args, title="Current Arguments"):
     for k, v in sorted(args_dict.items()):
         print(f"{k}: {v}")
     print(f"{'-'*50}\n")
+
+def plot_3d_scatter_comparison(decoded_images, real_images, fname):
+    """
+    Saves a 3D scatter plot comparing decoded and real image embeddings.
+    Expects shape (B, 3) for both tensors.
+    """
+    decoded = decoded_images.detach().cpu().numpy()
+    real = real_images.detach().cpu().numpy()
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(real[:, 0], real[:, 1], real[:, 2], c='blue', label='Real', alpha=0.6)
+    ax.scatter(decoded[:, 0], decoded[:, 1], decoded[:, 2], c='red', label='Decoded', alpha=0.6)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend(loc='upper right')
+    ax.set_title('3D Comparison of Real vs Decoded')
+
+    plt.tight_layout()
+    plt.savefig(fname, dpi=300)
+    plt.close()

@@ -1,5 +1,5 @@
 import torch.nn as nn
-from helper import ResidualBlock, NonLocalBlock, DownSampleBlock, UpSampleBlock, GroupNorm, Swish
+from helper import ResidualBlock, NonLocalBlock, DownSampleBlock, UpSampleBlock, GroupNorm, Swish, LinearCombo
 
 
 class Encoder(nn.Module):
@@ -29,3 +29,19 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+
+class CondEncoder(nn.Module):
+    def __init__(self, args):
+        super(CondEncoder, self).__init__()
+        self.c_fmap_dim = args.c_fmap_dim
+        self.model = nn.Sequential(
+            LinearCombo(args.c_input_dim, args.c_hidden_dim),
+            LinearCombo(args.c_hidden_dim, args.c_hidden_dim),
+            nn.Linear(args.c_hidden_dim, args.c_latent_dim*args.c_fmap_dim**2)
+        )
+    
+    def forward(self, x):
+        encoded = self.model(x)
+        s = encoded.shape
+        return encoded.view(s[0], s[1]//self.c_fmap_dim**2, self.c_fmap_dim, self.c_fmap_dim)

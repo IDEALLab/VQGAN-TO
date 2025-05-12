@@ -1,18 +1,25 @@
 import torch
 import torch.nn as nn
-from encoder import Encoder
-from decoder import Decoder
+from encoder import Encoder, CondEncoder
+from decoder import Decoder, CondDecoder
 from codebook import Codebook
 
 
 class VQGAN(nn.Module):
     def __init__(self, args):
         super(VQGAN, self).__init__()
-        self.encoder = Encoder(args).to(device=args.device)
-        self.decoder = Decoder(args).to(device=args.device)
+        if args.is_c:
+            self.encoder = CondEncoder(args).to(device=args.device)
+            self.decoder = CondDecoder(args).to(device=args.device)
+            self.quant_conv = nn.Conv2d(args.c_latent_dim, args.c_latent_dim, 1).to(device=args.device)
+            self.post_quant_conv = nn.Conv2d(args.c_latent_dim, args.c_latent_dim, 1).to(device=args.device)
+        else:
+            self.encoder = Encoder(args).to(device=args.device)
+            self.decoder = Decoder(args).to(device=args.device)
+            self.quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
+            self.post_quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
+        
         self.codebook = Codebook(args).to(device=args.device)
-        self.quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
-        self.post_quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
 
     def forward(self, imgs):
         encoded_images = self.encoder(imgs)

@@ -206,3 +206,10 @@ class GreyscaleLPIPS(nn.Module):
             loss = torch.clamp(loss, min=0.0)
 
         return loss
+    
+class NoLPIPS(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, real_x, fake_x):
+        return torch.zeros_like(real_x)

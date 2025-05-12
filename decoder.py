@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.utils as nn_utils
-from helper import ResidualBlock, NonLocalBlock, UpSampleBlock, GroupNorm, Swish
+from helper import ResidualBlock, NonLocalBlock, UpSampleBlock, GroupNorm, Swish, LinearCombo
 
 
 class Decoder(nn.Module):
@@ -32,3 +32,15 @@ class Decoder(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+class CondDecoder(nn.Module):
+    def __init__(self, args):
+        super(CondDecoder, self).__init__()
+
+        self.model = nn.Sequential(
+            LinearCombo(args.c_latent_dim*args.c_fmap_dim**2, args.c_hidden_dim),
+            LinearCombo(args.c_hidden_dim, args.c_hidden_dim),
+            nn.Linear(args.c_hidden_dim, args.c_input_dim)
+        )
+    
+    def forward(self, x):
+        return self.model(x.contiguous().view(len(x), -1))

@@ -5,8 +5,8 @@ import torch.nn as nn
 class Codebook(nn.Module):
     def __init__(self, args):
         super(Codebook, self).__init__()
-        self.num_codebook_vectors = args.num_codebook_vectors
-        self.latent_dim = args.latent_dim
+        self.num_codebook_vectors = args.c_num_codebook_vectors if args.is_c else args.num_codebook_vectors
+        self.latent_dim = args.c_latent_dim if args.is_c else args.latent_dim
         self.beta = args.beta
 
         self.embedding = nn.Embedding(self.num_codebook_vectors, self.latent_dim)

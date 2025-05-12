@@ -25,6 +25,15 @@ class Discriminator(nn.Module):
         layers.append(self._conv(args.spectral_disc, num_filters_last * num_filters_mult, 1, 4, 1, 1))
         self.model = nn.Sequential(*layers)
 
+        # CUSTOM ADAPTER for CVQGAN
+        self.cvqgan_adapter = nn.Sequential(
+            nn.Linear(args.image_channels, args.image_size),
+            nn.ReLU(),
+            nn.Linear(args.image_size, args.image_channels*args.image_size**2),
+            nn.ReLU(),
+            nn.Unflatten(1, (args.image_channels, args.image_size, args.image_size))  # shape: (B, 3, 256, 256)
+        )
+
     def _conv(self, use_spectral_norm, in_channels, out_channels, kernel_size, stride, padding, bias=True):
         conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
         if use_spectral_norm:
@@ -32,4 +41,6 @@ class Discriminator(nn.Module):
         return conv
 
     def forward(self, x):
+        if x.ndim == 2:
+            x = self.cvqgan_adapter(x) 
         return self.model(x)
