@@ -61,5 +61,6 @@ c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,late
 c9:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=2,num_codebook_vectors=128,learning_rate=2e-04,disc_start=999999
 c10:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=1,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
 
-#################### CVQGAN ############################
+#################### CVQGAN ####################
 cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=2150
+# Hint: image_channels is the number of conditions in this case

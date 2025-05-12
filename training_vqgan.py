@@ -219,7 +219,7 @@ class TrainVQGAN:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VQGAN")
-    parser.add_argument('--latent_dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
+    parser.add_argument('--latent_dim', type=int, default=256, help='Latent (codebook vector) dimension n_z (default: 256)')
     parser.add_argument('--image_size', type=int, default=256, help='Image height and width (default: 256)')
     parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
     parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
@@ -268,9 +268,9 @@ if __name__ == '__main__':
     parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
     parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
     parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
-    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent dimension for CVQGAN (default: 4)')
+    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent (codebook vector) dimension for CVQGAN (default: 4)')
     parser.add_argument('--c_num_codebook_vectors', type=int, default=64, help='Number of codebook vectors for CVQGAN (default: 64)')
-    parser.add_argument('--c_fmap_dim', type=int, default=1, help='Feature map dimension for CVQGAN (default: 1)')
+    parser.add_argument('--c_fmap_dim', type=int, default=4, help='Feature map dimension for CVQGAN (default: 4)')
 
     args = parser.parse_args()
     print_args(args, "Training Arguments")
