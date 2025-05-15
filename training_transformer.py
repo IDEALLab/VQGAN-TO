@@ -1,6 +1,7 @@
 # training_transformer.py
 
 import os
+import json
 import numpy as np
 from tqdm import tqdm
 import argparse
@@ -34,7 +35,6 @@ class TrainTransformer:
 
     def save_args(self, args):
         """Save the training arguments for later use in evaluation"""
-        import json
         
         os.makedirs(self.saves_dir, exist_ok=True)
         args_dict = vars(args)
@@ -201,11 +201,11 @@ if __name__ == '__main__':
     parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
     # Transformer-specific args
-    parser.add_argument('--model_name', type=str, default="baseline", help='Saved model name for VQGAN Stage 1 (default: baseline)')
+    parser.add_argument('--model_name', type=str, default="c6", help='Saved model name for VQGAN Stage 1 (default: baseline)')
+    parser.add_argument('--c_model_name', type=str, default="cvq", help='Saved model name for CVQGAN (default: cvq)')
     parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
     parser.add_argument('--sos_token', type=int, default=0, help='Start of Sentence token.')
     parser.add_argument('--t_is_c', type=str2bool, default=True, help='Use CVQGAN for prepended conditions (default: True)')
-    parser.add_argument('--c_model_name', type=str, default="cvq", help='Saved model name for CVQGAN (default: cvq)')
 
     # CVQGAN-specific args
     parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')

@@ -1,9 +1,12 @@
+import os
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from nanogpt import GPT, GPTConfig
 from vqgan import VQGAN
 from copy import deepcopy
+from utils import print_args
 
 
 class VQGANTransformer(nn.Module):
@@ -12,19 +15,21 @@ class VQGANTransformer(nn.Module):
 
         self.sos_token = args.sos_token
 
-        self.vqgan = VQGAN(args).to(device=args.device)
-        self.load_vqgan(args)
+        vq_args = self.load_training_args(args)
+        self.vqgan = VQGAN(vq_args).to(device=vq_args.device)
+        self.load_vqgan(vq_args)
 
         if args.t_is_c:
             # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
-            c_args = deepcopy(args)
-            c_args.is_c = True
-            self.cvqgan = VQGAN(c_args).to(device=c_args.device)
-            self.load_vqgan(c_args)
+            temp_cvq_args = deepcopy(args)
+            temp_cvq_args.is_c = True
+            cvq_args = self.load_training_args(temp_cvq_args)
+            self.cvqgan = VQGAN(cvq_args).to(device=cvq_args.device)
+            self.load_vqgan(cvq_args)
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
-            vocab_size=args.num_codebook_vectors,
+            vocab_size=vq_args.num_codebook_vectors,
             block_size=1024,
             n_layer=12,
             n_head=12,
@@ -37,13 +42,57 @@ class VQGANTransformer(nn.Module):
         self.t_is_c = args.t_is_c
         self.pkeep = args.pkeep
 
+    def load_training_args(self, args):
+        """Load the training arguments and update the evaluation args, returning the updated args."""
+        args = deepcopy(args)  # Prevent upstream mutation
+
+        training_args_path = os.path.join(
+            "../saves", 
+            args.c_model_name if args.is_c else args.model_name,
+            "training_args.json"
+        )
+
+        if os.path.exists(training_args_path):
+            print(f"Loading training arguments from {training_args_path}")
+            
+            try:
+                with open(training_args_path, 'r') as f:
+                    training_args_dict = json.load(f)
+                
+                preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
+                current_args_dict = vars(args)
+                preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
+                
+                for k, v in training_args_dict.items():
+                    if k not in preserve_keys and hasattr(args, k):
+                        arg_type = type(getattr(args, k)) if hasattr(args, k) else type(v)
+                        try:
+                            if arg_type == bool and isinstance(v, str):
+                                setattr(args, k, v.lower() == 'true')
+                            else:
+                                setattr(args, k, arg_type(v))
+                        except (ValueError, TypeError):
+                            setattr(args, k, v)
+                
+                for k, v in preserved_values.items():
+                    setattr(args, k, v)
+                
+                print_args(args, "Updated Evaluation Arguments")
+
+            except Exception as e:
+                print(f"Error loading training arguments: {e}")
+                print("Using provided evaluation arguments instead.")
+        else:
+            print(f"Warning: Training arguments not found at {training_args_path}. Using provided evaluation arguments.")
+
+        return args
 
     def load_vqgan(self, args):
-        checkpoint = torch.load(
-            args.c_checkpoint_path if args.is_c else args.checkpoint_path, 
-            map_location=args.device, 
-            weights_only=True
-        )
+        model_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
+        
+        checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
         
         # Debug: Print checkpoint keys and model state_dict keys
         print(f"Checkpoint keys: {checkpoint.keys()}")
@@ -79,7 +128,7 @@ class VQGANTransformer(nn.Module):
 
     @torch.no_grad()
     def z_to_image(self, indices, p1=16, p2=16):
-        ix_to_vectors = self.vqgan.codebook.embedding(indices).reshape(indices.shape[0], p1, p2, 256)
+        ix_to_vectors = self.vqgan.codebook.embedding(indices).reshape(indices.shape[0], p1, p2, -1)
         ix_to_vectors = ix_to_vectors.permute(0, 3, 1, 2)
         image = self.vqgan.decode(ix_to_vectors)
         return image
@@ -129,7 +178,21 @@ class VQGANTransformer(nn.Module):
             logits = logits[:, -1, :] / temperature
 
             if top_k is not None:
-                logits = self.top_k_logits(logits, top_k)
+                # Determine the actual vocabulary size for this batch
+                # Count non-negative infinity values in the logits
+                n_tokens = torch.sum(torch.isfinite(logits), dim=-1).min().item()
+                
+                # Use the minimum of top_k and the actual number of tokens
+                effective_top_k = min(top_k, n_tokens)
+                
+                # Apply top_k with the effective value
+                if effective_top_k > 0:  # Ensure we have at least one token to sample
+                    logits = self.top_k_logits(logits, effective_top_k)
+                else:
+                    # Fallback if all logits are -inf (shouldn't happen, but just in case)
+                    print("Warning: No finite logits found for sampling")
+                    # Make all logits equal (uniform distribution)
+                    logits = torch.zeros_like(logits)
 
             probs = F.softmax(logits, dim=-1)
 
