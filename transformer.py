@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from nanogpt import GPT, GPTConfig
 from vqgan import VQGAN
+from copy import deepcopy
 
 
 class VQGANTransformer(nn.Module):
@@ -13,6 +14,13 @@ class VQGANTransformer(nn.Module):
 
         self.vqgan = VQGAN(args).to(device=args.device)
         self.load_vqgan(args)
+
+        if args.t_is_c:
+            # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
+            c_args = deepcopy(args)
+            c_args.is_c = True
+            self.cvqgan = VQGAN(c_args).to(device=c_args.device)
+            self.load_vqgan(c_args)
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
@@ -26,11 +34,16 @@ class VQGANTransformer(nn.Module):
         )
         self.transformer = GPT(transformer_config)
 
+        self.t_is_c = args.t_is_c
         self.pkeep = args.pkeep
 
 
     def load_vqgan(self, args):
-        checkpoint = torch.load(args.checkpoint_path, map_location=args.device, weights_only=True)
+        checkpoint = torch.load(
+            args.c_checkpoint_path if args.is_c else args.checkpoint_path, 
+            map_location=args.device, 
+            weights_only=True
+        )
         
         # Debug: Print checkpoint keys and model state_dict keys
         print(f"Checkpoint keys: {checkpoint.keys()}")
@@ -43,17 +56,24 @@ class VQGANTransformer(nn.Module):
                 new_k = k.replace("_orig_mod.", "")
                 new_state_dict[new_k] = v
             state_dict = new_state_dict
-        
-        self.vqgan.load_state_dict(state_dict, strict=False)
-        self.vqgan.eval()  # Set model to evaluation mode
-        
+
+        model = self.cvqgan if args.is_c else self.vqgan
+        model.load_state_dict(state_dict, strict=False)
+        model.eval()
+
         if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-            self.vqgan = torch.compile(self.vqgan)
+            model = torch.compile(model)
+
+        setattr(self, 'cvqgan' if args.is_c else 'vqgan', model)
     
 
     @torch.no_grad()
     def encode_to_z(self, x):
-        quant_z, indices, _ = self.vqgan.encode(x)
+        # Conditional case
+        if x.ndim == 2:
+            quant_z, indices, _ = self.cvqgan.encode(x)
+        else:
+            quant_z, indices, _ = self.vqgan.encode(x)
         indices = indices.view(quant_z.shape[0], -1)
         return quant_z, indices
 
@@ -64,11 +84,14 @@ class VQGANTransformer(nn.Module):
         image = self.vqgan.decode(ix_to_vectors)
         return image
 
-    def forward(self, x):
+    def forward(self, x, c):
         _, indices = self.encode_to_z(x)
 
-        sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
-        sos_tokens = sos_tokens.long().to("cuda")
+        if self.t_is_c:
+            _, sos_tokens = self.encode_to_z(c)
+        else:
+            sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
+            sos_tokens = sos_tokens.long().to("cuda")
 
         mask = torch.bernoulli(self.pkeep * torch.ones(indices.shape, device=indices.device))
         mask = mask.round().to(dtype=torch.int64)
@@ -82,6 +105,7 @@ class VQGANTransformer(nn.Module):
         # NanoGPT forward doesn't use embeddings parameter, but takes targets
         # We're ignoring the loss returned by NanoGPT
         logits, _ = self.transformer(new_indices[:, :-1], None)
+        logits = logits[:, sos_tokens.shape[1]-1:]
 
         return logits, target
 
@@ -118,12 +142,15 @@ class VQGANTransformer(nn.Module):
         return x
 
     @torch.no_grad()
-    def log_images(self, x):
+    def log_images(self, x, c):
         log = dict()
 
         _, indices = self.encode_to_z(x)
-        sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
-        sos_tokens = sos_tokens.long().to("cuda")
+        if self.t_is_c:
+            _, sos_tokens = self.encode_to_z(c)
+        else:
+            sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
+            sos_tokens = sos_tokens.long().to("cuda")
 
         start_indices = indices[:, :indices.shape[1] // 2]
         sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1])

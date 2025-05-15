@@ -269,7 +269,6 @@ if __name__ == '__main__':
     parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
 
     # Decoder-specific args
-    parser.add_argument('--spectral_decoder', type=str2bool, default=False, help='Apply spectral normalization to Conv layers (default: False)')
     parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
     parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
     parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
