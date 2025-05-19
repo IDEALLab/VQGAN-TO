@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from vqgan import VQGAN
         
 
 def set_precision():
@@ -158,36 +159,28 @@ def plot_3d_scatter_comparison(decoded_images, real_images, fname):
     plt.close()
 
 
-def load_vqgan(model_container, args, is_conditional=False):
+def load_vqgan(args):
     """
     Loads a VQGAN or CVQGAN model checkpoint based on provided args.
-
-    Parameters:
-        model_container: an object with `vqgan` and optionally `cvqgan` attributes
-        args: object with attributes like run_name/model_name, device, and is_c
-        is_conditional (bool): if True, uses args.run_name and args.is_c to determine which model to load
+    
+    args: object with attributes like run_name/model_name, device, and is_c
     """
-    model_name = args.run_name if is_conditional else args.model_name
-    model_path = os.path.join("../saves", model_name, "checkpoints", "vqgan.pth")
+    model_path = os.path.join("../saves", args.run_name, "checkpoints", "vqgan.pth")
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
 
     checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
-
-    print(f"Checkpoint keys: {checkpoint.keys()}")
-
     state_dict = checkpoint["generator"]
+
     if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
         print("Detected _orig_mod. prefix, removing it from keys...")
         state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
 
-    model_attr = 'cvqgan' if is_conditional and getattr(args, 'is_c', False) else 'vqgan'
-    model = getattr(model_container, model_attr)
-
+    model = VQGAN(args).to(args.device)
     model.load_state_dict(state_dict, strict=False)
-    model.eval()
 
     if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-        compiled_model = torch.compile(model)
-        setattr(model_container, model_attr, compiled_model)
+        model = torch.compile(model)
+
+    return model

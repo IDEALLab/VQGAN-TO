@@ -1,132 +1,104 @@
 import os
 import argparse
 import json
-from dataclasses import dataclass, field
 from datetime import datetime
-from utils import str2bool
 from copy import deepcopy
-
-
-@dataclass
-class VQGANArguments:
-    # General
-    latent_dim: int = 256
-    image_size: int = 256
-    num_codebook_vectors: int = 1024
-    beta: float = 0.25
-    image_channels: int = 1
-    dataset_path: str = '../data/gamma_4579_half.npy'
-    device: str = 'cuda'
-    batch_size: int = 16
-    epochs: int = 100
-    learning_rate: float = 0.0002
-    beta1: float = 0.5
-    beta2: float = 0.9
-    disc_start: int = 0
-    disc_factor: float = 1.0
-    rec_loss_factor: float = 1.0
-    perceptual_loss_factor: float = 1.0
-
-    # Extra metadata
-    conditions_path: str = '../data/inp_paras_4579.npy'
-    problem_id: str = 'mto'
-    algo: str = 'vqgan'
-    seed: int = 1
-    track: bool = True
-    save_model: bool = True
-    sample_interval: int = 215
-    run_name: str = field(default_factory=lambda: datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
-
-    # Decoder-specific
-    decoder_channels: list = field(default_factory=lambda: [512, 256, 256, 128, 128])
-    decoder_attn_resolutions: list = field(default_factory=lambda: [16])
-    decoder_num_res_blocks: int = 3
-    decoder_start_resolution: int = 16
-
-    # Encoder-specific
-    encoder_channels: list = field(default_factory=lambda: [128, 128, 128, 256, 256, 512])
-    encoder_attn_resolutions: list = field(default_factory=lambda: [16])
-    encoder_num_res_blocks: int = 2
-    encoder_start_resolution: int = 256
-
-    # Training options
-    use_greyscale_lpips: bool = True
-    spectral_disc: bool = False
-    use_DAE: bool = False
-    use_Online: bool = False
-
-    # Transformer
-    model_name: str = "baseline"
-    c_model_name: str = "cvq"
-    pkeep: float = 1.0
-    sos_token: int = 0
-    t_is_c: bool = True
-    block_size: int = 1024
-    n_layer: int = 12
-    n_head: int = 12
-    n_embd: int = 768
-    dropout: float = 0.3  # Dropout parameter (default in nanoGPT)
-    bias: bool = True     # Bias parameter (default in nanoGPT)
-    # POTENTIALLY ADD IF NEEDED LATER --> is_t: bool = False
-
-    # CVQGAN
-    is_c: bool = False
-    c_input_dim: int = 3
-    c_hidden_dim: int = 256
-    c_latent_dim: int = 4
-    c_num_codebook_vectors: int = 64
-    c_fmap_dim: int = 4
-
-    # Automatically set after parsing
-    checkpoint_path: str = field(init=False)
-    c_checkpoint_path: str = field(init=False)
-
-    def __post_init__(self):
-        self.checkpoint_path = os.path.join("../saves", self.model_name, "checkpoints", "vqgan.pth")
-        self.c_checkpoint_path = os.path.join("../saves", self.c_model_name, "checkpoints", "vqgan.pth")
+from utils import str2bool
 
 
 def get_args():
     parser = argparse.ArgumentParser(description="VQGAN Training Args")
 
-    for field_name, field_def in VQGANArguments.__dataclass_fields__.items():
-        if field_def.init:
-            arg_type = field_def.type
-            default = field_def.default if field_def.default != field(default_factory=lambda: None) else None
-            kwargs = {'type': arg_type, 'default': default, 'help': f'{field_name} (default: {default})'}
+    # General
+    parser.add_argument('--latent_dim', type=int, default=256)
+    parser.add_argument('--image_size', type=int, default=256)
+    parser.add_argument('--num_codebook_vectors', type=int, default=1024)
+    parser.add_argument('--beta', type=float, default=0.25)
+    parser.add_argument('--image_channels', type=int, default=1)
+    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
+    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--learning_rate', type=float, default=0.0002)
+    parser.add_argument('--beta1', type=float, default=0.5)
+    parser.add_argument('--beta2', type=float, default=0.9)
+    parser.add_argument('--disc_start', type=int, default=0)
+    parser.add_argument('--disc_factor', type=float, default=1.0)
+    parser.add_argument('--rec_loss_factor', type=float, default=1.0)
+    parser.add_argument('--perceptual_loss_factor', type=float, default=1.0)
 
-            if arg_type == bool:
-                kwargs['type'] = str2bool
-            elif arg_type == list:
-                kwargs['type'] = int
-                kwargs['nargs'] = '+'
-            elif isinstance(default, list):
-                kwargs['type'] = type(default[0]) if default else str
-                kwargs['nargs'] = '+'
+    # Metadata
+    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
+    parser.add_argument('--problem_id', type=str, default='mto')
+    parser.add_argument('--algo', type=str, default='vqgan')
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--track', type=str2bool, default=True)
+    parser.add_argument('--save_model', type=str2bool, default=True)
+    parser.add_argument('--sample_interval', type=int, default=215)
+    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
 
-            parser.add_argument(f'--{field_name}', **{k: v for k, v in kwargs.items() if v is not None})
+    # Decoder / Encoder
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128])
+    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16])
+    parser.add_argument('--decoder_num_res_blocks', type=int, default=3)
+    parser.add_argument('--decoder_start_resolution', type=int, default=16)
+
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512])
+    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16])
+    parser.add_argument('--encoder_num_res_blocks', type=int, default=2)
+    parser.add_argument('--encoder_start_resolution', type=int, default=256)
+
+    # VQGAN / Training options
+    parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True)
+    parser.add_argument('--spectral_disc', type=str2bool, default=False)
+    parser.add_argument('--use_DAE', type=str2bool, default=False)
+    parser.add_argument('--use_Online', type=str2bool, default=False)
+
+    # Transformer
+    parser.add_argument('--is_t', type=str2bool, default=False)
+    parser.add_argument('--model_name', type=str, default="baseline")
+    parser.add_argument('--c_model_name', type=str, default="cvq")
+    parser.add_argument('--pkeep', type=float, default=1.0)
+    parser.add_argument('--sos_token', type=int, default=0)
+    parser.add_argument('--t_is_c', type=str2bool, default=True)
+    parser.add_argument('--block_size', type=int, default=1024)
+    parser.add_argument('--n_layer', type=int, default=12)
+    parser.add_argument('--n_head', type=int, default=12)
+    parser.add_argument('--n_embd', type=int, default=768)
+    parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--bias', type=str2bool, default=True)
+
+    # CVQGAN
+    parser.add_argument('--is_c', type=str2bool, default=False)
+    parser.add_argument('--c_input_dim', type=int, default=3)
+    parser.add_argument('--c_hidden_dim', type=int, default=256)
+    parser.add_argument('--c_latent_dim', type=int, default=4)
+    parser.add_argument('--c_num_codebook_vectors', type=int, default=64)
+    parser.add_argument('--c_fmap_dim', type=int, default=4)
 
     args = parser.parse_args()
-    return VQGANArguments(**vars(args))
+
+    # Add derived paths
+    args.checkpoint_path = os.path.join("../saves", args.model_name, "checkpoints", "vqgan.pth")
+    args.c_checkpoint_path = os.path.join("../saves", args.c_model_name, "checkpoints", "vqgan.pth")
+
+    return args
 
 
 def save_args(args):
-    """Save the training arguments for later use in evaluation"""
-    saves_dir = os.path.join("../saves", args.c_model_name if args.is_c else args.model_name)
-    os.makedirs(saves_dir, exist_ok=True)
-
     args_dict = vars(args)
+    save_dir = os.path.join("../saves", args.run_name)
+    os.makedirs(save_dir, exist_ok=True)
 
-    # Convert any non-serializable objects to strings
-    for key, value in args_dict.items():
-        if not isinstance(value, (str, int, float, bool, list, dict, tuple, type(None))):
-            args_dict[key] = str(value)
+    # Convert non-serializables
+    for k, v in args_dict.items():
+        if not isinstance(v, (str, int, float, bool, list, dict, tuple, type(None))):
+            args_dict[k] = str(v)
 
-    path = os.path.join(saves_dir, "training_args.json")
-    with open(path, 'w') as f:
+    with open(os.path.join(save_dir, "training_args.json"), 'w') as f:
         json.dump(args_dict, f, indent=4)
 
-    print(f"Training arguments saved to {path}")
+    print(f"Saved training args to {os.path.join(save_dir, 'training_args.json')}")
 
 
 def load_args(args):
@@ -146,25 +118,24 @@ def load_args(args):
             with open(training_args_path, 'r') as f:
                 training_args_dict = json.load(f)
 
-            preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
+            preserve_keys = ['device', 'batch_size']
+            if not args.is_t:
+                preserve_keys.append('model_name')
             current_args_dict = vars(args)
             preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
 
             for k, v in training_args_dict.items():
-                if k not in preserve_keys and hasattr(args, k):
-                    arg_type = type(getattr(args, k)) if hasattr(args, k) else type(v)
+                if k not in preserve_keys:
                     try:
-                        if arg_type == bool and isinstance(v, str):
-                            setattr(args, k, v.lower() == 'true')
-                        else:
-                            setattr(args, k, arg_type(v))
-                    except (ValueError, TypeError):
                         setattr(args, k, v)
+                    except Exception:
+                        pass
 
             for k, v in preserved_values.items():
                 setattr(args, k, v)
 
             print("Evaluation arguments updated from saved training configuration.")
+            print_args(args, "Updated Evaluation Arguments")
 
         except Exception as e:
             print(f"Error loading training arguments: {e}")
@@ -174,13 +145,13 @@ def load_args(args):
 
     return args
 
+
 def print_args(args, title="Current Arguments"):
-    """Print all arguments in a formatted way"""
     print(f"\n{'-'*20} {title} {'-'*20}")
-    args_dict = vars(args)
-    for k, v in sorted(args_dict.items()):
+    for k, v in sorted(vars(args).items()):
         print(f"{k}: {v}")
     print(f"{'-'*50}\n")
+
 
 # saves/2025-04-22_13-32-04: Complete baseline. Note: using batch_size 16.
 # saves/2025-04-23_12-10-46: Baseline with Greyscale LPIPS

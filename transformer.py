@@ -1,10 +1,7 @@
-import os
-import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from nanogpt import GPT, GPTConfig
-from vqgan import VQGAN
 from copy import deepcopy
 from utils import load_vqgan
 from args import load_args, print_args
@@ -17,18 +14,14 @@ class VQGANTransformer(nn.Module):
         self.sos_token = args.sos_token
 
         vq_args = load_args(args)
-        print_args(args, title="VQGAN Arguments")
-        self.vqgan = VQGAN(vq_args).to(device=vq_args.device)
-        load_vqgan(vq_args)
+        self.vqgan = load_vqgan(vq_args).eval()
 
         if args.t_is_c:
             # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
             temp_cvq_args = deepcopy(args)
             temp_cvq_args.is_c = True
             cvq_args = load_args(temp_cvq_args)
-            print_args(args, title="CVQGAN Arguments")
-            self.cvqgan = VQGAN(cvq_args).to(device=cvq_args.device)
-            load_vqgan(cvq_args)
+            self.cvqgan = load_vqgan(cvq_args).eval()
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(

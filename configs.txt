@@ -54,6 +54,7 @@ c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,late
 c6_repeat:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
 c7:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2.25e-05,disc_start=999999
 c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
+c8_repeat:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
 
 # Also try latent_dim 4 or even 2? Start without discriminator
 # After this: pick the best above and test with different discriminator start times (0-5 epochs in or 0-5 * 215 steps). When using discriminator, likely stick to learning_rate=2.25e-05

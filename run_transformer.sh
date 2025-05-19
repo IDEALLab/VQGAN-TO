@@ -9,7 +9,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc
@@ -22,4 +22,4 @@ mkdir -p "$sd"
 module unload python
 source ~/vqgan_env/bin/activate
 cd "$wd"
-python training_transformer.py --run_name "$runname" > "$sd/output.txt" 2>&1
+python training_transformer.py --run_name "$runname" --is_t True > "$sd/output.txt" 2>&1

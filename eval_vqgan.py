@@ -6,7 +6,6 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 from lpips import LPIPS, GreyscaleLPIPS
-from vqgan import VQGAN
 from utils import get_data, plot_data, load_vqgan, set_precision, set_all_seeds
 from args import get_args, load_args, print_args
 
@@ -15,7 +14,6 @@ class EvalVQGAN:
         set_precision()
         set_all_seeds(args.seed)
     
-        # Create evaluation directories first, before loading model
         self.eval_dir = os.path.join(r"../evals", args.model_name)
         self.results_dir = os.path.join(self.eval_dir, "results")
         os.makedirs(self.eval_dir, exist_ok=True)
@@ -23,15 +21,11 @@ class EvalVQGAN:
         
         # Load saved training arguments and update current args
         args = load_args(args)
-        print_args(args, title="Updated Arguments")
         
         # Now initialize VQGAN with potentially updated args
-        self.vqgan = VQGAN(args).to(device=args.device)
+        self.vqgan = load_vqgan(args).eval()
         self.perceptual_loss = LPIPS().eval().to(device=args.device)
         self.grey_perceptual_loss = GreyscaleLPIPS().eval().to(device=args.device)
-        
-        # Load the trained model
-        load_vqgan(args)
         
         # Perform evaluation
         self.evaluate(args)
