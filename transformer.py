@@ -88,7 +88,7 @@ class VQGANTransformer(nn.Module):
         return args
 
     def load_vqgan(self, args):
-        model_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
+        model_path = os.path.join(r"../saves", args.run_name, "checkpoints", "vqgan.pth")
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
         

@@ -201,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
 
     # Transformer-specific args
-    parser.add_argument('--model_name', type=str, default="c6", help='Saved model name for VQGAN Stage 1 (default: baseline)')
+    parser.add_argument('--model_name', type=str, default="baseline", help='Saved model name for VQGAN Stage 1 (default: baseline)')
     parser.add_argument('--c_model_name', type=str, default="cvq", help='Saved model name for CVQGAN (default: cvq)')
     parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
     parser.add_argument('--sos_token', type=int, default=0, help='Start of Sentence token.')
