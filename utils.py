@@ -40,10 +40,12 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
 def str2bool(v):
     if isinstance(v, bool):
         return v
     return v.lower() in ("yes", "true", "t", "1")
+
 
 # Now loads in the full dataset with conditions
 def get_data(args):
@@ -130,13 +132,6 @@ def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cma
         del(fig)
         del(axs)
 
-def print_args(args, title="Current Arguments"):
-    """Print all arguments in a formatted way"""
-    print(f"\n{'-'*20} {title} {'-'*20}")
-    args_dict = vars(args)
-    for k, v in sorted(args_dict.items()):
-        print(f"{k}: {v}")
-    print(f"{'-'*50}\n")
 
 def plot_3d_scatter_comparison(decoded_images, real_images, fname):
     """
@@ -161,3 +156,38 @@ def plot_3d_scatter_comparison(decoded_images, real_images, fname):
     plt.tight_layout()
     plt.savefig(fname, dpi=300)
     plt.close()
+
+
+def load_vqgan(model_container, args, is_conditional=False):
+    """
+    Loads a VQGAN or CVQGAN model checkpoint based on provided args.
+
+    Parameters:
+        model_container: an object with `vqgan` and optionally `cvqgan` attributes
+        args: object with attributes like run_name/model_name, device, and is_c
+        is_conditional (bool): if True, uses args.run_name and args.is_c to determine which model to load
+    """
+    model_name = args.run_name if is_conditional else args.model_name
+    model_path = os.path.join("../saves", model_name, "checkpoints", "vqgan.pth")
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
+
+    checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
+
+    print(f"Checkpoint keys: {checkpoint.keys()}")
+
+    state_dict = checkpoint["generator"]
+    if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
+        print("Detected _orig_mod. prefix, removing it from keys...")
+        state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+
+    model_attr = 'cvqgan' if is_conditional and getattr(args, 'is_c', False) else 'vqgan'
+    model = getattr(model_container, model_attr)
+
+    model.load_state_dict(state_dict, strict=False)
+    model.eval()
+
+    if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
+        compiled_model = torch.compile(model)
+        setattr(model_container, model_attr, compiled_model)

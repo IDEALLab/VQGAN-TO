@@ -1,22 +1,21 @@
-# training_transformer.py
-
 import os
-import json
 import numpy as np
 from tqdm import tqdm
-import argparse
-from datetime import datetime
 from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import utils as vutils
 from transformer import VQGANTransformer
-from utils import get_data, str2bool #, plot_images
+from utils import get_data, set_precision, set_all_seeds
+from args import get_args, save_args, print_args
 
 
 class TrainTransformer:
     def __init__(self, args):
+        set_precision()
+        set_all_seeds(args.seed)
+    
         self.model = VQGANTransformer(args).to(device=args.device)
         self.optim = self.configure_optimizers()
 
@@ -27,28 +26,7 @@ class TrainTransformer:
         self.saves_dir = saves_dir
 
         self.prepare_training()
-
-        # Save the arguments for later evaluation
-        self.save_args(args)
-
         self.train(args)
-
-    def save_args(self, args):
-        """Save the training arguments for later use in evaluation"""
-        
-        os.makedirs(self.saves_dir, exist_ok=True)
-        args_dict = vars(args)
-        
-        # Convert any non-serializable objects to strings
-        for key, value in args_dict.items():
-            if not isinstance(value, (str, int, float, bool, list, dict, tuple, type(None))):
-                args_dict[key] = str(value)
-        
-        # Save as JSON
-        with open(os.path.join(self.saves_dir, "training_args.json"), 'w') as f:
-            json.dump(args_dict, f, indent=4)
-        
-        print(f"Training arguments saved to {os.path.join(self.saves_dir, 'training_args.json')}")
 
     def prepare_training(self):
         os.makedirs(self.saves_dir, exist_ok=True)
@@ -154,72 +132,7 @@ class TrainTransformer:
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="VQGAN")
-    parser.add_argument('--latent_dim', type=int, default=256, help='Latent dimension n_z (default: 256)')
-    parser.add_argument('--image_size', type=int, default=256, help='Image height and width (default: 256)')
-    parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
-    parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
-    parser.add_argument('--image_channels', type=int, default=1, help='Number of channels of images (default: 3)')
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: /data)') # New dataset path
-    parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
-    parser.add_argument('--batch_size', type=int, default=16, help='Input batch size for training (default: 6)')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
-    parser.add_argument('--learning_rate', type=float, default=5e-04, help='Learning rate (default: 2.25e-05)')
-    parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
-    parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
-    parser.add_argument('--disc_start', type=int, default=0, help='When to start the discriminator (default: 0)')
-    parser.add_argument('--disc_factor', type=float, default=1., help='')
-    parser.add_argument('--rec_loss_factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
-    parser.add_argument('--perceptual_loss_factor', type=float, default=1., help='Weighting factor for perceptual loss.')
-
-    # New arguments
-    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy', help='Path to conditions (default: ../data/inp_paras_4579.npy)')
-    parser.add_argument('--problem_id', type=str, default='mto', help='Problem ID (default: mto)')
-    parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
-    parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
-    parser.add_argument('--track', type=str2bool, default=True, help='track or not (default: True)')
-    parser.add_argument('--save_model', type=str2bool, default=True, help='Save model checkpoint (default: True)')
-    parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
-    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
-
-    # Decoder-specific args
-    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
-    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
-    parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
-    parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
-
-    # Encoder-specific args
-    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
-    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
-    parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
-    parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
-
-    # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
-    parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
-    parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
-
-    # Transformer-specific args
-    parser.add_argument('--model_name', type=str, default="baseline", help='Saved model name for VQGAN Stage 1 (default: baseline)')
-    parser.add_argument('--c_model_name', type=str, default="cvq", help='Saved model name for CVQGAN (default: cvq)')
-    parser.add_argument('--pkeep', type=float, default=1.0, help='Percentage for how much latent codes to keep.')
-    parser.add_argument('--sos_token', type=int, default=0, help='Start of Sentence token.')
-    parser.add_argument('--t_is_c', type=str2bool, default=True, help='Use CVQGAN for prepended conditions (default: True)')
-
-    # CVQGAN-specific args
-    parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
-    parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
-    parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
-    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent (codebook vector) dimension for CVQGAN (default: 4)')
-    parser.add_argument('--c_num_codebook_vectors', type=int, default=64, help='Number of codebook vectors for CVQGAN (default: 64)')
-    parser.add_argument('--c_fmap_dim', type=int, default=4, help='Feature map dimension for CVQGAN (default: 4)')
-
-
-    args = parser.parse_args()
-    args.checkpoint_path = os.path.join(r"../saves", args.model_name, "checkpoints", "vqgan.pth")
-    args.c_checkpoint_path = os.path.join(r"../saves", args.c_model_name, "checkpoints", "vqgan.pth")
-
+    args = get_args()
+    print_args(args, title="Training Arguments")
+    save_args(args)
     train_transformer = TrainTransformer(args)
-
-

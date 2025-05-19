@@ -6,7 +6,8 @@ import torch.nn.functional as F
 from nanogpt import GPT, GPTConfig
 from vqgan import VQGAN
 from copy import deepcopy
-from utils import print_args
+from utils import load_vqgan
+from args import load_args, print_args
 
 
 class VQGANTransformer(nn.Module):
@@ -15,106 +16,34 @@ class VQGANTransformer(nn.Module):
 
         self.sos_token = args.sos_token
 
-        vq_args = self.load_training_args(args)
+        vq_args = load_args(args)
+        print_args(args, title="VQGAN Arguments")
         self.vqgan = VQGAN(vq_args).to(device=vq_args.device)
-        self.load_vqgan(vq_args)
+        load_vqgan(vq_args)
 
         if args.t_is_c:
             # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
             temp_cvq_args = deepcopy(args)
             temp_cvq_args.is_c = True
-            cvq_args = self.load_training_args(temp_cvq_args)
+            cvq_args = load_args(temp_cvq_args)
+            print_args(args, title="CVQGAN Arguments")
             self.cvqgan = VQGAN(cvq_args).to(device=cvq_args.device)
-            self.load_vqgan(cvq_args)
+            load_vqgan(cvq_args)
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
             vocab_size=vq_args.num_codebook_vectors,
-            block_size=1024,
-            n_layer=12,
-            n_head=12,
-            n_embd=768,
-            dropout=0.3,  # Add dropout parameter (default in nanoGPT)
-            bias=True     # Add bias parameter (default in nanoGPT)
+            block_size=vq_args.block_size,
+            n_layer=vq_args.n_layer,
+            n_head=vq_args.n_head,
+            n_embd=vq_args.n_embd,
+            dropout=vq_args.dropout,    # Add dropout parameter (default in nanoGPT)
+            bias=vq_args.bias           # Add bias parameter (default in nanoGPT)
         )
         self.transformer = GPT(transformer_config)
 
         self.t_is_c = args.t_is_c
         self.pkeep = args.pkeep
-
-    def load_training_args(self, args):
-        """Load the training arguments and update the evaluation args, returning the updated args."""
-        args = deepcopy(args)  # Prevent upstream mutation
-
-        training_args_path = os.path.join(
-            "../saves", 
-            args.c_model_name if args.is_c else args.model_name,
-            "training_args.json"
-        )
-
-        if os.path.exists(training_args_path):
-            print(f"Loading training arguments from {training_args_path}")
-            
-            try:
-                with open(training_args_path, 'r') as f:
-                    training_args_dict = json.load(f)
-                
-                preserve_keys = ['device', 'batch_size', 'model_name', 'test_split']
-                current_args_dict = vars(args)
-                preserved_values = {k: current_args_dict[k] for k in preserve_keys if k in current_args_dict}
-                
-                for k, v in training_args_dict.items():
-                    if k not in preserve_keys and hasattr(args, k):
-                        arg_type = type(getattr(args, k)) if hasattr(args, k) else type(v)
-                        try:
-                            if arg_type == bool and isinstance(v, str):
-                                setattr(args, k, v.lower() == 'true')
-                            else:
-                                setattr(args, k, arg_type(v))
-                        except (ValueError, TypeError):
-                            setattr(args, k, v)
-                
-                for k, v in preserved_values.items():
-                    setattr(args, k, v)
-                
-                print_args(args, "Updated Evaluation Arguments")
-
-            except Exception as e:
-                print(f"Error loading training arguments: {e}")
-                print("Using provided evaluation arguments instead.")
-        else:
-            print(f"Warning: Training arguments not found at {training_args_path}. Using provided evaluation arguments.")
-
-        return args
-
-    def load_vqgan(self, args):
-        model_path = os.path.join(r"../saves", args.run_name, "checkpoints", "vqgan.pth")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
-        
-        checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
-        
-        # Debug: Print checkpoint keys and model state_dict keys
-        print(f"Checkpoint keys: {checkpoint.keys()}")
-        
-        state_dict = checkpoint["generator"]
-        if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
-            print("Detected _orig_mod. prefix, removing it from keys...")
-            new_state_dict = {}
-            for k, v in state_dict.items():
-                new_k = k.replace("_orig_mod.", "")
-                new_state_dict[new_k] = v
-            state_dict = new_state_dict
-
-        model = self.cvqgan if args.is_c else self.vqgan
-        model.load_state_dict(state_dict, strict=False)
-        model.eval()
-
-        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-            model = torch.compile(model)
-
-        setattr(self, 'cvqgan' if args.is_c else 'vqgan', model)
-    
 
     @torch.no_grad()
     def encode_to_z(self, x):
@@ -231,3 +160,4 @@ class VQGANTransformer(nn.Module):
         log["full_sample"] = full_sample
 
         return log, torch.concat((x, x_rec, half_sample, full_sample))
+    

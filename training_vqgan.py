@@ -1,18 +1,15 @@
 import os
-import sys
-import argparse
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-from datetime import datetime
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from discriminator import Discriminator
 from lpips import LPIPS, GreyscaleLPIPS, NoLPIPS
 from vqgan import VQGAN
-from utils import get_data, weights_init, plot_data, print_args, set_precision, set_all_seeds, str2bool, plot_3d_scatter_comparison
+from utils import get_data, weights_init, plot_data, set_precision, set_all_seeds, plot_3d_scatter_comparison
+from args import get_args, save_args, print_args
 
 
 class TrainVQGAN:
@@ -40,29 +37,7 @@ class TrainVQGAN:
             self.discriminator = torch.compile(self.discriminator)
 
         self.prepare_training()
-        
-        # Save the arguments for later evaluation
-        self.save_args(args)
-
         self.train(args)
-
-    def save_args(self, args):
-        """Save the training arguments for later use in evaluation"""
-        import json
-        
-        os.makedirs(self.saves_dir, exist_ok=True)
-        args_dict = vars(args)
-        
-        # Convert any non-serializable objects to strings
-        for key, value in args_dict.items():
-            if not isinstance(value, (str, int, float, bool, list, dict, tuple, type(None))):
-                args_dict[key] = str(value)
-        
-        # Save as JSON
-        with open(os.path.join(self.saves_dir, "training_args.json"), 'w') as f:
-            json.dump(args_dict, f, indent=4)
-        
-        print(f"Training arguments saved to {os.path.join(self.saves_dir, 'training_args.json')}")
 
     def configure_optimizers(self, args):
         lr = args.learning_rate
@@ -218,84 +193,7 @@ class TrainVQGAN:
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="VQGAN")
-    parser.add_argument('--latent_dim', type=int, default=256, help='Latent (codebook vector) dimension n_z (default: 256)')
-    parser.add_argument('--image_size', type=int, default=256, help='Image height and width (default: 256)')
-    parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors (default: 256)')
-    parser.add_argument('--beta', type=float, default=0.25, help='Commitment loss scalar (default: 0.25)')
-    parser.add_argument('--image_channels', type=int, default=1, help='Number of channels of images (default: 3)')
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy', help='Path to data (default: ../data/gamma_4579_half.npy)') # New dataset path
-    parser.add_argument('--device', type=str, default="cuda", help='Which device the training is on')
-    parser.add_argument('--batch_size', type=int, default=16, help='Input batch size for training (default: 6)')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train (default: 50)')
-    parser.add_argument('--learning_rate', type=float, default=2.25e-05, help='Learning rate (default: 0.0002)')
-    parser.add_argument('--beta1', type=float, default=0.5, help='Adam beta param (default: 0.0)')
-    parser.add_argument('--beta2', type=float, default=0.9, help='Adam beta param (default: 0.999)')
-    parser.add_argument('--disc_start', type=int, default=0, help='When to start the discriminator (default: 0)')
-    parser.add_argument('--disc_factor', type=float, default=1., help='')
-    parser.add_argument('--rec_loss_factor', type=float, default=1., help='Weighting factor for reconstruction loss.')
-    parser.add_argument('--perceptual_loss_factor', type=float, default=1., help='Weighting factor for perceptual loss.')
-
-    # New arguments
-    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy', help='Path to conditions (default: ../data/inp_paras_4579.npy)')
-    parser.add_argument('--problem_id', type=str, default='mto', help='Problem ID (default: mto)')
-    parser.add_argument('--algo', type=str, default='vqgan', help='Algorithm name (default: vqgan)')
-    parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
-    parser.add_argument('--track', type=str2bool, default=True, help='track or not (default: True)')
-    parser.add_argument('--save_model', type=str2bool, default=True, help='Save model checkpoint (default: True)')
-    parser.add_argument('--sample_interval', type=int, default=215, help='Interval for saving sample images (default: 1000)')
-    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), help='Run name for this training session (default: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))')
-
-    # Decoder-specific args
-    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128], help='List of channel sizes for Decoder (default: [512, 256, 256, 128, 128])')
-    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Decoder (default: [16])')
-    parser.add_argument('--decoder_num_res_blocks', type=int, default=3, help='Number of residual blocks per stage in Decoder (default: 3)')
-    parser.add_argument('--decoder_start_resolution', type=int, default=16, help='Starting resolution in Decoder (default: 16)')
-
-    # Encoder-specific args
-    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512], help='List of channel sizes for Encoder (default: [128, 128, 128, 256, 256, 512])')
-    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16], help='Resolutions for attention in Encoder (default: [16])')
-    parser.add_argument('--encoder_num_res_blocks', type=int, default=2, help='Number of residual blocks per stage in Encoder (default: 2)')
-    parser.add_argument('--encoder_start_resolution', type=int, default=256, help='Starting resolution in Encoder (default: 256)')
-
-    # Training-specific args
-    parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True, help='Use Greyscale LPIPS for perceptual loss (default: False)')
-    parser.add_argument('--spectral_disc', type=str2bool, default=False, help='Apply spectral normalization to Conv layers of discriminator (default: False)')
-    parser.add_argument('--use_DAE', type=str2bool, default=False, help='Use Decoupled Autoencoder for training (default: False)') # Not implemented
-    parser.add_argument('--use_Online', type=str2bool, default=False, help='Use Online Clustered Codebook (default: False)') # Not implemented
-
-    # CVQGAN-specific args
-    parser.add_argument('--is_c', type=str2bool, default=False, help='Train a CVQGAN (default: False)')
-    parser.add_argument('--c_input_dim', type=int, default=3, help='Input dimension for CVQGAN (default: 3)')
-    parser.add_argument('--c_hidden_dim', type=int, default=256, help='Hidden dimension for CVQGAN (default: 256)')
-    parser.add_argument('--c_latent_dim', type=int, default=4, help='Latent (codebook vector) dimension for CVQGAN (default: 4)')
-    parser.add_argument('--c_num_codebook_vectors', type=int, default=64, help='Number of codebook vectors for CVQGAN (default: 64)')
-    parser.add_argument('--c_fmap_dim', type=int, default=4, help='Feature map dimension for CVQGAN (default: 4)')
-
-    args = parser.parse_args()
-    print_args(args, "Training Arguments")
+    args = get_args()
+    print_args(args, title="Training Arguments")
+    save_args(args)
     train_vqgan = TrainVQGAN(args)
-
-    # saves/2025-04-22_13-32-04: Complete baseline. Note: using batch_size 16.
-    # saves/2025-04-23_12-10-46: Baseline with Greyscale LPIPS
-    # saves/2025-04-24_06-36-52: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32 ONLY
-        # Satisfactory
-    # saves/2025-04-23_13-04-49: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, disc start at 3*215 [NOW OBSOLETE]
-        # Leads to some generator degradation
-    # saves/2025-04-23_20-27-33: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 32, spectral norm enabled for decoder, NO discriminator [NOW OBSOLETE]
-        # Among the best so far but deviates from "GAN" in VQGAN
-    # saves/2025-04-24_14-49-04: Baseline with Greyscale LPIPS, latent dim reduced from 256 to 16, 512-width layers reduced to 256, attn dims changed from [16] to []
-    # saves/2025-04-24_17-46-54: Baseline with Greyscale LPIPS, codebook vectors reduced from 1024 to 64, latent dim reduced from 256 to 16, 512-width layers reduced to 256, spectral norm enabled, NO discriminator, learning rate increased from 2.25e-5 to 2e-4 [NOW OBSOLETE]
-    # saves/2025-04-24_19-28-29: Same as above but with 32 codebook vectors [NOW OBSOLETE]
-
-    # saves/2025-04-28_11-30-31: Same as above but with 16 codebook vectors [NOW OBSOLETE]
-    # saves/2025-04-28_11-31-01: Same as above but with batch size doubled to 32, sample interval 215 --> 108 [NOW OBSOLETE]
-
-    # saves/2025-04-29_18-42-49: Same as saves/2025-04-24_19-28-29 but with attn resolutions [16] --> [16, 32, 64] [NOW OBSOLETE]
-        # Little to no improvement at a significant training time cost
-
-    # saves/2025-04-30_10-54-36: Same as saves/2025-04-24_19-28-29 but with experimental least volume loss (factor 1e-1) and codebook vectors raised back to 1024 [NOW OBSOLETE]
-        # Requires too much effort to balance loss with other losses and spectral norm, abandoned
-
-    # Next idea: No discriminator, specnorm for decoder NO (implementation too difficult and non-standard), hybrid size hidden layers, 8 latent dim, 64/32 codebook vectors, learning rate TBD
-        # Thus try 8 combinations with learning rate 2e-4/2.25e-5, latent dim 8/4, codebook vectors 64/32

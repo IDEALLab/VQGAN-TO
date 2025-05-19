@@ -1,5 +1,3 @@
-# TODO: Change to nanoGPT
-
 """
 taken from: https://github.com/karpathy/minGPT/
 GPT model:
