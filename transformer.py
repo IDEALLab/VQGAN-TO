@@ -24,7 +24,7 @@ class VQGANTransformer(nn.Module):
             self.cvqgan = load_vqgan(cvq_args).eval()
 
         # block_size is automatically set to the combined sequence length of the VQGAN and CVQGAN
-        block_size = vq_args.image_size // (2 ** (len(vq_args.decoder_channels) - 1)) 
+        block_size = (vq_args.image_size // (2 ** (len(vq_args.decoder_channels) - 1))) ** 2
         if args.t_is_c:
             block_size += cvq_args.c_fmap_dim ** 2
 
