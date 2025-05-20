@@ -1,14 +1,13 @@
 #!/bin/bash
-# Script to submit multiple VQGAN training jobs with different configurations
+# Script to submit multiple VQGAN/CVQGAN/Transformer training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
 
 # Function to print usage information
 function print_usage() {
-    echo "Usage: bash batch_submit.sh [options]"
+    echo "Usage: bash batch_submit_with_transformer.sh [options]"
     echo ""
     echo "Options:"
     echo "  -c, --configs CONFIG_FILE    Path to configuration file (default: configs.txt)"
-    echo "  -d, --dry-run                Print commands without submitting jobs"
     echo "  -f, --force                  Force job submission even if directories exist"
     echo "  -h, --help                   Show this help message"
     echo ""
@@ -17,13 +16,14 @@ function print_usage() {
     echo "# Each job is defined by JOB_NAME:param1=value1,param2=value2"
     echo "experiment1:batch_size=64,learning_rate=0.001,epochs=100"
     echo "experiment2:batch_size=128,learning_rate=0.0005,epochs=150"
-    echo "# Boolean parameters can use true/false, True/False, 0/1"
-    echo "experiment3:batch_size=64,use_feature=true,spectral_decoder=false"
+    echo "# For transformer models, use is_t=true"
+    echo "transformer_exp:is_t=true,n_layer=12,n_head=12,n_embd=768"
+    echo "# For conditional VQGAN, use is_c=true"
+    echo "cvqgan_exp:is_c=true,image_channels=3,learning_rate=2e-04"
 }
 
 # Parse command-line arguments
 CONFIG_FILE="configs.txt"
-DRY_RUN=false
 FORCE=false
 
 while [[ $# -gt 0 ]]; do
@@ -31,10 +31,6 @@ while [[ $# -gt 0 ]]; do
         -c|--configs)
             CONFIG_FILE="$2"
             shift 2
-            ;;
-        -d|--dry-run)
-            DRY_RUN=true
-            shift
             ;;
         -f|--force)
             FORCE=true
@@ -88,12 +84,48 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     JOB_NAME=${line%%:*}
     PARAMS=${line#*:}
     
+    # Use the given name for this run
+    RUNNAME="${JOB_NAME}"
+    
+    # Parse parameters to determine job type (VQGAN, CVQGAN, or Transformer)
+    IS_TRANSFORMER=false
+    IS_CONDITIONAL_VQGAN=false
+    
+    IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
+    for pair in "${PARAM_PAIRS[@]}"; do
+        if [[ -z "$pair" ]]; then
+            continue
+        fi
+        
+        KEY=${pair%%=*}
+        VALUE=${pair#*=}
+        
+        # Convert value to lowercase for comparison
+        lower_value="${VALUE,,}"
+        
+        if [[ "$KEY" == "is_t" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
+            IS_TRANSFORMER=true
+        elif [[ "$KEY" == "is_c" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
+            IS_CONDITIONAL_VQGAN=true
+        fi
+    done
+    
+    # Determine which Python script to use based on the job type
+    if [ "$IS_TRANSFORMER" = true ]; then
+        PYTHON_SCRIPT="training_transformer.py"
+        JOB_TYPE="transformer"
+    else
+        PYTHON_SCRIPT="training_vqgan.py"
+        if [ "$IS_CONDITIONAL_VQGAN" = true ]; then
+            JOB_TYPE="cvqgan"
+        else
+            JOB_TYPE="vqgan"
+        fi
+    fi
+    
     # Create a custom run.sh script for this job
     JOB_SCRIPT="$TEMP_DIR/run_${JOB_NAME}.sh"
     EVAL_SCRIPT="$TEMP_DIR/eval_${JOB_NAME}.sh"
-    
-    # Use the given name for this run
-    RUNNAME="${JOB_NAME}"
     
     # Check if save and eval directories already exist and are non-empty
     SAVE_DIR="$HOME/scratch/VQGAN/saves/$RUNNAME"
@@ -119,11 +151,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     
     # Prepare the parameter string for the Python command
     PARAM_STRING=""
-    IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
-
-    PARAM_STRING=""
-    IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
-
     for pair in "${PARAM_PAIRS[@]}"; do
         if [[ -z "$pair" ]]; then
             continue
@@ -152,7 +179,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     cat > "$JOB_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
-#SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_main-%A_%a.out
+#SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_${JOB_TYPE}-%A_%a.out
 #SBATCH -t 12:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
@@ -165,7 +192,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
 . ~/.bashrc
 runname="$RUNNAME"
-echo "Starting job with name: \$runname"
+echo "Starting ${JOB_TYPE} job with name: \$runname"
 wd=~/scratch/VQGAN/src
 sd=~/scratch/VQGAN/saves/\$runname
 
@@ -203,8 +230,8 @@ source ~/vqgan_env/bin/activate
 cd "\$wd"
 
 # Run training with the specified parameters
-echo "Running with parameters: $PARAM_STRING --run_name \$runname"
-python training_vqgan.py $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
+echo "Running $PYTHON_SCRIPT with parameters: $PARAM_STRING --run_name \$runname"
+python $PYTHON_SCRIPT $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
 
 # Write success/failure status to a file for reference
 if [ \$? -eq 0 ]; then
@@ -216,8 +243,10 @@ else
 fi
 EOL
 
-    # Create the evaluation job script
-    cat > "$EVAL_SCRIPT" << EOL
+    # Only create evaluation script for VQGAN/CVQGAN jobs, not transformer jobs
+    if [ "$IS_TRANSFORMER" = false ]; then
+        # Create the evaluation job script
+        cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=eval_${JOB_NAME}
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
@@ -276,44 +305,34 @@ python eval_vqgan.py --model_name "\$model_name" > "\$eval_dir/eval_output.txt" 
 
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
+        # Make eval script executable
+        chmod +x "$EVAL_SCRIPT"
+    fi
 
-    # Make both scripts executable
+    # Make training script executable
     chmod +x "$JOB_SCRIPT"
-    chmod +x "$EVAL_SCRIPT"
     
-    # Submit or print the job command
-    if [ "$DRY_RUN" = true ]; then
-        if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
-            echo "[DRY RUN] Would SKIP training job for '$JOB_NAME': Directory already exists"
-        else
-            echo "[DRY RUN] Would submit training job: sbatch $JOB_SCRIPT"
-        fi
+    # Submit the training job
+    if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
+        echo "Skipping training job submission for '$JOB_NAME': Save directory already exists"
         
-        if [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
-            echo "[DRY RUN] Would SKIP evaluation job for '$JOB_NAME': Directory already exists"
-        else
-            echo "[DRY RUN] Would submit evaluation job: sbatch --dependency=afterok:\$JOBID $EVAL_SCRIPT"
+        # Check if we should still run the evaluation job (only for VQGAN/CVQGAN)
+        if [ "$IS_TRANSFORMER" = false ] && [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
+            echo "Submitting just the evaluation job for '$JOB_NAME'"
+            EVAL_JOBID=$(sbatch "$EVAL_SCRIPT" | awk '{print $4}')
+            echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
+        elif [ "$IS_TRANSFORMER" = false ]; then
+            echo "Skipping evaluation job submission for '$JOB_NAME': Eval directory already exists"
         fi
     else
-        # Only submit if we're forcing or the directory doesn't exist yet
-        if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
-            echo "Skipping training job submission for '$JOB_NAME': Save directory already exists"
+        echo "Submitting training job: sbatch $JOB_SCRIPT"
+        TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
+        
+        if [ -n "$TRAIN_JOBID" ]; then
+            echo "Submitted ${JOB_TYPE} training job $JOB_NAME with ID: $TRAIN_JOBID"
             
-            # Check if we should still run the evaluation job
-            if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
-                echo "Submitting just the evaluation job for '$JOB_NAME'"
-                EVAL_JOBID=$(sbatch "$EVAL_SCRIPT" | awk '{print $4}')
-                echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
-            else
-                echo "Skipping evaluation job submission for '$JOB_NAME': Eval directory already exists"
-            fi
-        else
-            echo "Submitting training job: sbatch $JOB_SCRIPT"
-            TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
-            
-            if [ -n "$TRAIN_JOBID" ]; then
-                echo "Submitted training job $JOB_NAME with ID: $TRAIN_JOBID"
-                
+            # Only submit evaluation job for VQGAN/CVQGAN jobs
+            if [ "$IS_TRANSFORMER" = false ]; then
                 # Skip evaluation job if it already exists and we're not forcing
                 if [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
                     echo "Skipping evaluation job submission for '$JOB_NAME': Eval directory already exists"
@@ -323,9 +342,9 @@ EOL
                     EVAL_JOBID=$(sbatch --dependency=afterok:$TRAIN_JOBID "$EVAL_SCRIPT" | awk '{print $4}')
                     echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
                 fi
-            else
-                echo "Error: Failed to submit training job $JOB_NAME"
             fi
+        else
+            echo "Error: Failed to submit training job $JOB_NAME"
         fi
     fi
     

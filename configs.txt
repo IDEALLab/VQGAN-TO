@@ -66,3 +66,7 @@ c10:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,lat
 #################### CVQGAN ####################
 cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=2150
 # Hint: image_channels is the number of conditions in this case
+
+################## TRANSFORMER #################
+Tr_baseline:is_t=true,model_name=baseline,c_model_name=cvq
+Tr_c6:is_t=true,model_name=c6,c_model_name=cvq

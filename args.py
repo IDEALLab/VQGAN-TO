@@ -56,17 +56,21 @@ def get_args():
 
     # Transformer
     parser.add_argument('--is_t', type=str2bool, default=False)
-    parser.add_argument('--model_name', type=str, default="baseline")
+    parser.add_argument('--model_name', type=str, default="c6")
     parser.add_argument('--c_model_name', type=str, default="cvq")
     parser.add_argument('--pkeep', type=float, default=1.0)
     parser.add_argument('--sos_token', type=int, default=0)
     parser.add_argument('--t_is_c', type=str2bool, default=True)
-    parser.add_argument('--block_size', type=int, default=1024)
-    parser.add_argument('--n_layer', type=int, default=12)
-    parser.add_argument('--n_head', type=int, default=12)
-    parser.add_argument('--n_embd', type=int, default=768)
-    parser.add_argument('--dropout', type=float, default=0.3)
-    parser.add_argument('--bias', type=str2bool, default=True)
+    parser.add_argument('--n_layer', type=int, default=12)          # 12
+    parser.add_argument('--n_head', type=int, default=12)           # 12
+    parser.add_argument('--n_embd', type=int, default=768)          # 768
+    parser.add_argument('--dropout', type=float, default=0.0)       # 0.3
+    parser.add_argument('--bias', type=str2bool, default=True)      # True
+
+    # 'gpt2':         dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
+    # 'gpt2-medium':  dict(n_layer=24, n_head=16, n_embd=1024), # 350M params
+    # 'gpt2-large':   dict(n_layer=36, n_head=20, n_embd=1280), # 774M params
+    # 'gpt2-xl':      dict(n_layer=48, n_head=25, n_embd=1600), # 1558M params
 
     # CVQGAN
     parser.add_argument('--is_c', type=str2bool, default=False)

@@ -23,10 +23,15 @@ class VQGANTransformer(nn.Module):
             cvq_args = load_args(temp_cvq_args)
             self.cvqgan = load_vqgan(cvq_args).eval()
 
+        # block_size is automatically set to the combined sequence length of the VQGAN and CVQGAN
+        block_size = vq_args.image_size // (2 ** (len(vq_args.decoder_channels) - 1)) 
+        if args.t_is_c:
+            block_size += cvq_args.c_fmap_dim ** 2
+
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
             vocab_size=vq_args.num_codebook_vectors,
-            block_size=vq_args.block_size,
+            block_size=block_size,
             n_layer=vq_args.n_layer,
             n_head=vq_args.n_head,
             n_embd=vq_args.n_embd,
