@@ -26,6 +26,7 @@ class TrainVQGAN:
             self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
         self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': []}
+        self.log_codebook_usage = {'epochs': [], 'active_vectors': [], 'usage_percentage': []}
 
         saves_dir = os.path.join(r"../saves", args.run_name)
         self.results_dir = os.path.join(saves_dir, "results")
@@ -66,9 +67,11 @@ class TrainVQGAN:
         for epoch in tqdm(range(args.epochs)):
             epoch_d_losses = []
             epoch_g_losses = []
+            epoch_codebook_usage = {}  # Reset codebook usage tracking for this epoch
+            
             for i, (imgs, _) in enumerate(dataloader):
                 imgs = imgs.to(device=args.device, non_blocking=True)
-                decoded_images, _, q_loss = self.vqgan(imgs)
+                decoded_images, codebook_indices, q_loss = self.vqgan(imgs)
 
                 disc_real = self.discriminator(imgs)
                 disc_fake = self.discriminator(decoded_images)
@@ -100,6 +103,15 @@ class TrainVQGAN:
                 epoch_d_losses.append(gan_loss.item())
                 epoch_g_losses.append(vq_loss.item())
 
+                # Track codebook usage for this epoch
+                indices = codebook_indices.cpu().numpy()
+                unique_indices, counts = np.unique(indices, return_counts=True)
+                for idx, count in zip(unique_indices, counts):
+                    if idx in epoch_codebook_usage:
+                        epoch_codebook_usage[idx] += count
+                    else:
+                        epoch_codebook_usage[idx] = count
+
                 if args.track:
                     batches_done = epoch * len(dataloader) + i
 
@@ -120,7 +132,6 @@ class TrainVQGAN:
                             img_fname = os.path.join(self.results_dir, f"{batches_done}.png")
                             # img_fname = os.path.join(self.results_dir, f"{batches_done}.tiff")
 
-
                             plot_data(
                                 combined, 
                                 titles = ['Reconstruction', 'Real'], 
@@ -133,9 +144,7 @@ class TrainVQGAN:
                                 fontsize = 20
                             )
 
-                        # --------------
                         #  Save models
-                        # --------------
                         if args.save_model:
                             ckpt_gen = {
                                 "epoch": epoch,
@@ -160,10 +169,20 @@ class TrainVQGAN:
                 d_loss_avg = sum(epoch_d_losses) / len(epoch_d_losses)
                 g_loss_avg = sum(epoch_g_losses) / len(epoch_g_losses)
                 
+                # Calculate and track codebook usage statistics for this epoch
+                active_codes = len(epoch_codebook_usage)
+                usage_percentage = active_codes/args.num_codebook_vectors*100
+                print(f"[Epoch {epoch}] Codebook usage: {active_codes}/{args.num_codebook_vectors} vectors used ({usage_percentage:.2f}%)")
+                
                 # Track epoch averages
                 self.log_losses['epochs'].append(epoch)
                 self.log_losses['d_loss_avg'].append(np.log(d_loss_avg))
                 self.log_losses['g_loss_avg'].append(np.log(g_loss_avg))
+                
+                # Track codebook usage
+                self.log_codebook_usage['epochs'].append(epoch)
+                self.log_codebook_usage['active_vectors'].append(active_codes)
+                self.log_codebook_usage['usage_percentage'].append(usage_percentage)
                 
                 # Plot and save losses
                 plt.figure(figsize=(10, 5))
@@ -182,6 +201,23 @@ class TrainVQGAN:
                 plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
                 plt.close()
                 
+                # Plot and save codebook usage
+                if len(self.log_codebook_usage['epochs']) > 1:  # Only plot if we have more than 1 epoch
+                    plt.figure(figsize=(10, 5))
+                    # Skip the first epoch (index 0) when plotting
+                    epochs_to_plot = self.log_codebook_usage['epochs'][1:]
+                    vectors_to_plot = self.log_codebook_usage['active_vectors'][1:]
+                    plt.plot(epochs_to_plot, vectors_to_plot, label='Active Vectors', color='green')
+                    plt.xlabel('Epochs')
+                    plt.ylabel('Number of Active Vectors')
+                    plt.title('Codebook Usage Over Training')
+                    plt.legend()
+                    plt.grid(True)
+                    
+                    codebook_fname = os.path.join(self.results_dir, "codebook_usage.png")
+                    plt.savefig(codebook_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
+                    plt.close()
+                
                 # Convert dictionary to arrays for proper numpy saving
                 loss_data = np.array([
                     self.log_losses['epochs'],
@@ -191,6 +227,16 @@ class TrainVQGAN:
                 
                 # Save the loss data with a fixed name (overwriting previous versions)
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
+                
+                # Convert codebook usage to arrays for numpy saving
+                codebook_data = np.array([
+                    self.log_codebook_usage['epochs'],
+                    self.log_codebook_usage['active_vectors'],
+                    self.log_codebook_usage['usage_percentage']
+                ])
+                
+                # Save the codebook usage data
+                np.save(os.path.join(self.results_dir, "codebook_usage.npy"), codebook_data)
 
 if __name__ == '__main__':
     args = get_args()

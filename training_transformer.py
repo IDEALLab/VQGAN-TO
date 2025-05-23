@@ -104,32 +104,33 @@ class TrainTransformer:
                 self.log_losses['train_loss_avg'].append(np.log(train_loss_avg))
                 self.log_losses['test_loss_avg'].append(np.log(test_loss_avg))
                 
-                # Plot and save losses
-                plt.figure(figsize=(10, 5))
-                plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
-                plt.plot(self.log_losses['epochs'], self.log_losses['test_loss_avg'], label='Test Log-Loss')
-                plt.xlabel('Epochs')
-                plt.ylabel('Average Log-Loss')
-                plt.title('Transformer Train/Test Loss')
-                plt.legend()
-                plt.grid(True)
-                
-                loss_fname = os.path.join(self.results_dir, "log_loss.png")
-                plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
-                plt.close()
-                
-                # Convert dictionary to arrays for proper numpy saving
-                loss_data = np.array([
-                    self.log_losses['epochs'],
-                    self.log_losses['train_loss_avg'],
-                    self.log_losses['test_loss_avg']
-                ])
-                
-                vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"{batches_done}.png"), nrow=4)
-                # Save the latest model state
-                torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
-                # Save the loss data with a fixed name (overwriting previous versions)
-                np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
+                if batches_done % args.sample_interval == 0:
+                    # Plot and save losses
+                    plt.figure(figsize=(10, 5))
+                    plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
+                    plt.plot(self.log_losses['epochs'], self.log_losses['test_loss_avg'], label='Test Log-Loss')
+                    plt.xlabel('Epochs')
+                    plt.ylabel('Average Log-Loss')
+                    plt.title('Transformer Train/Test Loss')
+                    plt.legend()
+                    plt.grid(True)
+                    
+                    loss_fname = os.path.join(self.results_dir, "log_loss.png")
+                    plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
+                    plt.close()
+                    
+                    # Convert dictionary to arrays for proper numpy saving
+                    loss_data = np.array([
+                        self.log_losses['epochs'],
+                        self.log_losses['train_loss_avg'],
+                        self.log_losses['test_loss_avg']
+                    ])
+                    
+                    vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"{batches_done}.png"), nrow=4)
+                    # Save the latest model state
+                    torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
+                    # Save the loss data with a fixed name (overwriting previous versions)
+                    np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
 
 if __name__ == '__main__':
     args = get_args()

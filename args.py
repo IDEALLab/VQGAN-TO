@@ -19,7 +19,7 @@ def get_args():
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--learning_rate', type=float, default=0.0002)
+    parser.add_argument('--learning_rate', type=float, default=2.25e-05)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.9)
     parser.add_argument('--disc_start', type=int, default=0)
