@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--track', type=str2bool, default=True)
     parser.add_argument('--save_model', type=str2bool, default=True)
-    parser.add_argument('--sample_interval', type=int, default=215)
+    parser.add_argument('--sample_interval', type=int, default=1) ############################################################
     parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
 
     # Decoder / Encoder
@@ -57,6 +57,7 @@ def get_args():
     # Transformer
     parser.add_argument('--is_t', type=str2bool, default=False)
     parser.add_argument('--t_learning_rate', type=float, default=4.5e-06)
+    parser.add_argument('--t_early_stop_patience', type=int, default=10)
     parser.add_argument('--model_name', type=str, default="c6")
     parser.add_argument('--c_model_name', type=str, default="cvq")
     parser.add_argument('--pkeep', type=float, default=1.0)

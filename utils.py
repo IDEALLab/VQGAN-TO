@@ -48,27 +48,53 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 
-# Now loads in the full dataset with conditions
-def get_data(args):
+def get_data(args, use_val_split=False):
+    # Load and normalize conditions
     c_orig = torch.from_numpy(np.load(args.conditions_path).astype(np.float32))
     c, means, stds = normalize(c_orig)
+
+    # Load main dataset or use conditions as input
     if args.is_c:
         x = deepcopy(c)
     else:
-        x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(-1, args.image_channels, args.image_size, args.image_size)
+        x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(
+            -1, args.image_channels, args.image_size, args.image_size
+        )
 
+    dataset = TensorDataset(x, c)
     generator = torch.Generator().manual_seed(args.seed)
-    train_data, test_data = random_split(TensorDataset(x, c), [0.75, 0.25], generator=generator)
-    dataloader, test_dataloader = load_data(args, train_data, test_data, generator)
-    
-    return dataloader, test_dataloader, means, stds
+
+    if use_val_split:
+        total = len(dataset)
+        train_len = int(0.75 * total)
+        val_len = int(0.15 * total)
+        test_len = total - train_len - val_len
+        train_data, val_data, test_data = random_split(dataset, [train_len, val_len, test_len], generator=generator)
+        return load_data(args, train_data, val_data, test_data, generator), means, stds
+    else:
+        train_data, test_data = random_split(dataset, [int(0.75 * len(dataset)), len(dataset) - int(0.75 * len(dataset))], generator=generator)
+        return load_data(args, train_data, None, test_data, generator), means, stds
 
 
-# Now adds in test dataset
-def load_data(args, train_data, test_data, g):
-    dataloader = DataLoader(train_data, batch_size=args.batch_size, worker_init_fn=seed_worker, shuffle=True, generator=g)
-    test_dataloader = DataLoader(test_data, batch_size=args.batch_size, worker_init_fn=seed_worker, shuffle=False, generator=g)
-    return dataloader, test_dataloader
+def get_num_workers():
+    # Try SLURM setting first, then fallback to system cores
+    return int(os.environ.get("SLURM_CPUS_PER_TASK", max(2, os.cpu_count() // 2)))
+
+
+def load_data(args, train_data, val_data, test_data, g):
+    common_kwargs = {
+        'batch_size': args.batch_size,
+        'num_workers': get_num_workers(),
+        'pin_memory': True,
+        'persistent_workers': True,
+        'worker_init_fn': seed_worker
+    }
+
+    train_loader = DataLoader(train_data, shuffle=True, generator=g, **common_kwargs)
+    test_loader = DataLoader(test_data, shuffle=False, generator=g, **common_kwargs)
+    val_loader = DataLoader(val_data, shuffle=False, generator=g, **common_kwargs) if val_data is not None else None
+
+    return train_loader, val_loader, test_loader
 
 
 # Did not exist in original code (not conditional)

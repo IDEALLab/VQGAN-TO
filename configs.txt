@@ -29,9 +29,9 @@ lr_med_ND:learning_rate=2e-04,disc_start=999999
 repeat_lr_med_ND:learning_rate=2e-04,disc_start=999999
 lr_high_ND:learning_rate=2e-03,disc_start=999999
 
-# 4) Discriminator start ablation (5*215=1075, 999*215=214785)
-disc_early:disc_start=1075
-disc_none:disc_start=214785
+# 4) Discriminator start ablation
+disc_early:disc_start=5
+disc_none:disc_start=999999
 repeat_disc_none:disc_start=999999
 
 # 5) Spectral normalization of the discriminator
@@ -62,7 +62,7 @@ c7:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,late
 c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
 
 # Also try latent_dim 4 or even 2? Start without discriminator
-# After this: pick the best above and test with different discriminator start times (0-5 epochs in or 0-5 * 215 steps). When using discriminator, likely stick to learning_rate=2.25e-05
+# After this: pick the best above and test with different discriminator start times (0-5 epochs in). When using discriminator, likely stick to learning_rate=2.25e-05
 
 # From c6 (best): lower latent_dim to 2, 1, and double codebook vectors to 128, 256
 c9:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=2,num_codebook_vectors=128,learning_rate=2e-04,disc_start=999999
@@ -70,7 +70,7 @@ c10:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,lat
 
 
 #################### CVQGAN ####################
-cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=2150
+cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10
 # Hint: image_channels is the number of conditions in this case
 
 
@@ -80,9 +80,9 @@ Tr_baseline_long:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epoc
 Tr_c6:is_t=true,model_name=c6,c_model_name=cvq
 Tr_c6_mini:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1
 Tr_c6_mini_long:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=500
-Tr_c6_mini_1000:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=2150
-Tr_baseline_mini_1000:is_t=true,model_name=baseline,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=2150
-Tr_c6_mini_1000_highLR:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=2150,t_learning_rate=4.5e-05
+Tr_c6_mini_1000:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10
+Tr_baseline_mini_1000:is_t=true,model_name=baseline,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10
+Tr_c6_mini_1000_highLR:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10,t_learning_rate=4.5e-05
 
 # Noted that in the initial transformer config setup, changing learning_rate had no effect on training
     # lr was manually set to 4.5e-06 in configure_optimizers() of training_transformer.py

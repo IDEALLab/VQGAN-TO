@@ -19,11 +19,14 @@ class TrainTransformer:
         self.model = VQGANTransformer(args).to(device=args.device)
         self.optim = self.configure_optimizers(args)
 
-        self.log_losses = {'epochs': [], 'train_loss_avg': [], 'test_loss_avg': []}
+        self.log_losses = {'epochs': [], 'train_loss_avg': [], 'val_loss_avg': []}
         saves_dir = os.path.join(r"../saves", args.run_name)
         self.results_dir = os.path.join(saves_dir, "results")
         self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
         self.saves_dir = saves_dir
+
+        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
+            self.model = torch.compile(self.model)
 
         self.prepare_training()
         self.train(args)
@@ -66,52 +69,60 @@ class TrainTransformer:
         return optimizer
 
     def train(self, args):
-        dataloader, test_dataloader, means, stds = get_data(args)
+        dataloader, val_dataloader, test_dataloader, means, stds = get_data(args, use_val_split=True)
 
         for epoch in tqdm(range(args.epochs)):
             train_losses = []
-            test_losses = []
+            val_losses = []
             for imgs, c in dataloader:
                 self.optim.zero_grad()
-                imgs = imgs.to(device=args.device)
-                c = c.to(device=args.device)
+                imgs = imgs.to(device=args.device, non_blocking=True)
+                c = c.to(device=args.device, non_blocking=True)
                 logits, targets = self.model(imgs, c)
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
                 loss.backward()
                 self.optim.step()
                 train_losses.append(loss.item())
             
-            # Evaluate for test loss
+            # Validation loss
             self.model.eval()
             with torch.no_grad():
-                _, sampled_imgs = self.model.log_images(imgs[0][None], c[0][None])
-                for imgs, c in test_dataloader:
-                    imgs = imgs.to(device=args.device)
-                    c = c.to(device=args.device)
+                sample_imgs, sample_cond = next(iter(val_dataloader))
+                sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device))[1]
+
+                for imgs, c in val_dataloader:
+                    imgs = imgs.to(device=args.device, non_blocking=True)
+                    c = c.to(device=args.device, non_blocking=True)
                     logits, targets = self.model(imgs, c)
-                    test_loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
-                    test_losses.append(test_loss.item())
+                    val_loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
+                    val_losses.append(val_loss.item())
             self.model.train()
 
             if args.track:
-                batches_done = epoch * len(dataloader)
                 # Calculate average losses for this epoch
                 train_loss_avg = sum(train_losses) / len(train_losses)
-                test_loss_avg = sum(test_losses) / len(test_losses)
+                val_loss_avg = sum(val_losses) / len(val_losses)
                 
                 # Track epoch averages
                 self.log_losses['epochs'].append(epoch)
-                self.log_losses['train_loss_avg'].append(np.log(train_loss_avg))
-                self.log_losses['test_loss_avg'].append(np.log(test_loss_avg))
+                self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
+                self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
+
+                # Early stopping: stop if val loss hasn't improved in the last N epochs
+                if len(self.log_losses['val_loss_avg']) > args.t_early_stop_patience:
+                    recent = self.log_losses['val_loss_avg'][-(args.t_early_stop_patience + 1):]
+                    if all(recent[i] >= recent[0] for i in range(1, args.t_early_stop_patience + 1)):
+                        print(f"Early stopping at epoch {epoch} due to no val loss improvement in {args.t_early_stop_patience} epochs.")
+                        break
                 
-                if batches_done % args.sample_interval == 0:
+                if epoch % args.sample_interval == 0:
                     # Plot and save losses
                     plt.figure(figsize=(10, 5))
                     plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
-                    plt.plot(self.log_losses['epochs'], self.log_losses['test_loss_avg'], label='Test Log-Loss')
+                    plt.plot(self.log_losses['epochs'], self.log_losses['val_loss_avg'], label='Val Log-Loss')
                     plt.xlabel('Epochs')
                     plt.ylabel('Average Log-Loss')
-                    plt.title('Transformer Train/Test Loss')
+                    plt.title('Transformer Train/Val Loss')
                     plt.legend()
                     plt.grid(True)
                     
@@ -119,18 +130,11 @@ class TrainTransformer:
                     plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
                     plt.close()
                     
-                    # Convert dictionary to arrays for proper numpy saving
-                    loss_data = np.array([
-                        self.log_losses['epochs'],
-                        self.log_losses['train_loss_avg'],
-                        self.log_losses['test_loss_avg']
-                    ])
-                    
-                    vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"{batches_done}.png"), nrow=4)
+                    vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save the latest model state
                     torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
                     # Save the loss data with a fixed name (overwriting previous versions)
-                    np.save(os.path.join(self.results_dir, "log_loss.npy"), loss_data)
+                    np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
 
 if __name__ == '__main__':
     args = get_args()

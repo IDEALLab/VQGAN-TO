@@ -57,6 +57,7 @@ class EvalVQGAN:
 
                 # The VQGAN forward method returns: decoded_images, codebook_indices, q_loss
                 decoded_images, codebook_indices, _ = self.vqgan(imgs)
+                decoded_images = decoded_images.clamp(0, 1)
                 if i == 0:
                     print("Indices shape:", codebook_indices.shape)
                 
@@ -104,6 +105,14 @@ class EvalVQGAN:
         codebook_usage_pct = {k: (v / total_usage) * 100 for k, v in metrics['codebook_usage'].items()}
         active_codes = len(metrics['codebook_usage'])
         print(f"Codebook usage: {active_codes}/{args.num_codebook_vectors} vectors used ({active_codes/args.num_codebook_vectors*100:.2f}%)")
+
+        # Compute normalized codebook entropy
+        counts = np.array(list(metrics['codebook_usage'].values()))
+        probs = counts / counts.sum()
+        entropy = -np.sum(probs * np.log(probs + 1e-8))
+        max_entropy = np.log(args.num_codebook_vectors)
+        normalized_entropy = entropy / max_entropy
+        print(f"Normalized Codebook Entropy: {normalized_entropy:.4f}")
         
         # Save metrics to file
         metrics_summary = {
@@ -113,16 +122,21 @@ class EvalVQGAN:
             'avg_grey_lpips': avg_grey_lpips,
             'active_codes': active_codes,
             'total_codes': args.num_codebook_vectors,
-            'usage_percentage': active_codes/args.num_codebook_vectors*100
+            'usage_percentage': active_codes/args.num_codebook_vectors*100,
+            'normalized_entropy': normalized_entropy,
         }
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics_summary)
         
         # Plot codebook usage distribution
         plt.figure(figsize=(12, 6))
-        plt.bar(range(len(codebook_usage_pct)), list(codebook_usage_pct.values()))
-        plt.xlabel('Codebook Vector Index')
+        sorted_usage = sorted(codebook_usage_pct.items(), key=lambda x: x[1], reverse=True)
+        indices_sorted = [i for i, _ in sorted_usage]
+        values_sorted = [v for _, v in sorted_usage]
+
+        plt.bar(range(len(values_sorted)), values_sorted)
+        plt.xlabel('Sorted Codebook Vector Index')
         plt.ylabel('Usage Percentage (%)')
-        plt.title('Codebook Utilization')
+        plt.title('Codebook Utilization (Sorted)')
         plt.savefig(os.path.join(self.results_dir, "codebook_usage.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
         plt.close()
         
