@@ -61,7 +61,7 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
-        dataloader, test_dataloader, means, stds = get_data(args)
+        (dataloader, _, _), means, stds = get_data(args)
         steps_per_epoch = len(dataloader)
         
         for epoch in tqdm(range(args.epochs)):
@@ -76,7 +76,7 @@ class TrainVQGAN:
                 disc_real = self.discriminator(imgs)
                 disc_fake = self.discriminator(decoded_images)
 
-                disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
+                disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch, threshold=args.disc_start)
 
                 perceptual_loss = self.perceptual_loss(imgs, decoded_images)
                 rec_loss = torch.abs(imgs - decoded_images)
@@ -129,18 +129,28 @@ class TrainVQGAN:
                 max_entropy = np.log(args.num_codebook_vectors)
                 normalized_entropy = entropy / max_entropy
                 
-                self.log_losses['epochs'].append(epoch)
-                self.log_losses['d_loss_avg'].append(np.log(d_loss_avg + 1e-8))  # Adding a small value to avoid log(0)
+                if epoch >= args.disc_start:
+                    self.log_losses['d_loss_avg'].append(np.log(d_loss_avg + 1e-8))
+                else:
+                    self.log_losses['d_loss_avg'].append(None)
                 self.log_losses['g_loss_avg'].append(np.log(g_loss_avg))
-                self.log_codebook_usage['epochs'].append(epoch)
+                self.log_losses['epochs'].append(epoch)
+                
                 self.log_codebook_usage['active_vectors'].append(active_codes)
                 self.log_codebook_usage['usage_percentage'].append(usage_percentage)
                 self.log_codebook_usage['entropy'].append(normalized_entropy)
+                self.log_codebook_usage['epochs'].append(epoch)
 
                 if epoch % args.sample_interval == 0:
                     # Plot and save losses + codebook usage
                     plt.figure(figsize=(10, 5))
-                    plt.plot(self.log_losses['epochs'], self.log_losses['d_loss_avg'], label='D. Log-Loss')
+                    
+                    if epoch >= args.disc_start:
+                        # Only plot d_loss_avg for epochs >= disc_start
+                        valid_d_epochs = [e for e, d in zip(self.log_losses['epochs'], self.log_losses['d_loss_avg']) if d is not None]
+                        valid_d_vals = [d for d in self.log_losses['d_loss_avg'] if d is not None]
+                        plt.plot(valid_d_epochs, valid_d_vals, label='D. Log-Loss')
+
                     plt.plot(self.log_losses['epochs'], self.log_losses['g_loss_avg'], label='G. Log-Loss')
                     plt.xlabel('Epochs')
                     plt.ylabel('Average Loss')

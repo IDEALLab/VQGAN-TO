@@ -69,7 +69,7 @@ class TrainTransformer:
         return optimizer
 
     def train(self, args):
-        dataloader, val_dataloader, test_dataloader, means, stds = get_data(args, use_val_split=True)
+        (dataloader, val_dataloader, _), means, stds = get_data(args, use_val_split=True)
 
         for epoch in tqdm(range(args.epochs)):
             train_losses = []
@@ -108,7 +108,7 @@ class TrainTransformer:
                 self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
                 self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
 
-                # Early stopping: stop if val loss hasn't improved in the last N epochs
+                # Early stopping: stop if val loss hasn't improved in the last N epochs. Can set to 999999 to disable.
                 if len(self.log_losses['val_loss_avg']) > args.t_early_stop_patience:
                     recent = self.log_losses['val_loss_avg'][-(args.t_early_stop_patience + 1):]
                     if all(recent[i] >= recent[0] for i in range(1, args.t_early_stop_patience + 1)):
