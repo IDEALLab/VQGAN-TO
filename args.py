@@ -56,6 +56,7 @@ def get_args():
 
     # Transformer
     parser.add_argument('--is_t', type=str2bool, default=False)
+    parser.add_argument('--t_learning_rate', type=float, default=4.5e-06)
     parser.add_argument('--model_name', type=str, default="c6")
     parser.add_argument('--c_model_name', type=str, default="cvq")
     parser.add_argument('--pkeep', type=float, default=1.0)

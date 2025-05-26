@@ -17,7 +17,7 @@ class TrainTransformer:
         set_all_seeds(args.seed)
     
         self.model = VQGANTransformer(args).to(device=args.device)
-        self.optim = self.configure_optimizers()
+        self.optim = self.configure_optimizers(args)
 
         self.log_losses = {'epochs': [], 'train_loss_avg': [], 'test_loss_avg': []}
         saves_dir = os.path.join(r"../saves", args.run_name)
@@ -33,7 +33,7 @@ class TrainTransformer:
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self, args):
         decay, no_decay = set(), set()
         whitelist_weight_modules = (nn.Linear, )
         blacklist_weight_modules = (nn.LayerNorm, nn.Embedding)
@@ -62,7 +62,7 @@ class TrainTransformer:
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
 
-        optimizer = torch.optim.AdamW(optim_groups, lr=4.5e-06, betas=(0.9, 0.95))
+        optimizer = torch.optim.AdamW(optim_groups, lr=args.t_learning_rate, betas=(0.9, 0.95))
         return optimizer
 
     def train(self, args):
