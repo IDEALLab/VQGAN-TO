@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 import seaborn as sns
 
@@ -22,7 +23,7 @@ class EvalTransformer:
         args = load_args(args)
 
         self.model = VQGANTransformer(args).to(device=args.device)
-        ckpt_path = os.path.join("../saves", args.run_name, "checkpoints", "transformer.pt")
+        ckpt_path = os.path.join("../saves", args.t_name, "checkpoints", "transformer.pt")
         assert os.path.exists(ckpt_path), f"Missing checkpoint: {ckpt_path}"
         self.model.load_state_dict(torch.load(ckpt_path, map_location=args.device))
         self.model.eval()
@@ -47,9 +48,7 @@ class EvalTransformer:
 
                 # Cross-entropy loss
                 logits, targets = self.model(imgs, cond)
-                loss = torch.nn.functional.cross_entropy(
-                    logits.view(-1, logits.size(-1)), targets.view(-1)
-                )
+                loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
                 all_losses.append(loss.item())
 
                 # Generate full samples
