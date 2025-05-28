@@ -12,17 +12,10 @@ function print_usage() {
     echo "  -h, --help                   Show this help message"
     echo ""
     echo "Example configuration file format:"
-    echo "# Comments start with #"
     echo "# Each job is defined by JOB_NAME:param1=value1,param2=value2"
-    echo "experiment1:batch_size=64,learning_rate=0.001,epochs=100"
-    echo "experiment2:batch_size=128,learning_rate=0.0005,epochs=150"
-    echo "# For transformer models, use is_t=true"
     echo "transformer_exp:is_t=true,n_layer=12,n_head=12,n_embd=768"
-    echo "# For conditional VQGAN, use is_c=true"
-    echo "cvqgan_exp:is_c=true,image_channels=3,learning_rate=2e-04"
 }
 
-# Parse command-line arguments
 CONFIG_FILE="configs.txt"
 FORCE=false
 
@@ -48,134 +41,83 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check if config file exists
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: Configuration file '$CONFIG_FILE' not found."
     exit 1
 fi
 
-# Create a temp directory for job scripts
 TEMP_DIR=$(mktemp -d)
 echo "Created temporary directory for job scripts: $TEMP_DIR"
 
-# Function to check if directory exists and is non-empty
 function is_dir_nonempty() {
     local dir="$1"
-    # Check if directory exists and has files in it
     if [ -d "$dir" ] && [ "$(ls -A "$dir" 2>/dev/null)" ]; then
-        return 0  # True - directory exists and is non-empty
+        return 0
     else
-        return 1  # False - directory doesn't exist or is empty
+        return 1
     fi
 }
 
-# Process each configuration line
 LINE_NUM=0
 while IFS= read -r line || [[ -n "$line" ]]; do
-    # Skip empty lines and comments
     if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
         continue
     fi
 
-    # Increment line number for job naming
     ((LINE_NUM++))
-    
-    # Split the line into job name and parameters
     JOB_NAME=${line%%:*}
     PARAMS=${line#*:}
-    
-    # Use the given name for this run
     RUNNAME="${JOB_NAME}"
-    
-    # Parse parameters to determine job type (VQGAN, CVQGAN, or Transformer)
+
     IS_TRANSFORMER=false
     IS_CONDITIONAL_VQGAN=false
-    
+
     IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
     for pair in "${PARAM_PAIRS[@]}"; do
-        if [[ -z "$pair" ]]; then
-            continue
-        fi
-        
         KEY=${pair%%=*}
         VALUE=${pair#*=}
-        
-        # Convert value to lowercase for comparison
         lower_value="${VALUE,,}"
-        
         if [[ "$KEY" == "is_t" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
             IS_TRANSFORMER=true
         elif [[ "$KEY" == "is_c" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
             IS_CONDITIONAL_VQGAN=true
         fi
     done
-    
-    # Determine which Python script to use based on the job type
+
     if [ "$IS_TRANSFORMER" = true ]; then
         PYTHON_SCRIPT="training_transformer.py"
         JOB_TYPE="transformer"
     else
         PYTHON_SCRIPT="training_vqgan.py"
-        if [ "$IS_CONDITIONAL_VQGAN" = true ]; then
-            JOB_TYPE="cvqgan"
-        else
-            JOB_TYPE="vqgan"
-        fi
+        JOB_TYPE=$([ "$IS_CONDITIONAL_VQGAN" = true ] && echo "cvqgan" || echo "vqgan")
     fi
-    
-    # Create a custom run.sh script for this job
+
     JOB_SCRIPT="$TEMP_DIR/run_${JOB_NAME}.sh"
     EVAL_SCRIPT="$TEMP_DIR/eval_${JOB_NAME}.sh"
-    
-    # Check if save and eval directories already exist and are non-empty
     SAVE_DIR="$HOME/scratch/VQGAN/saves/$RUNNAME"
     EVAL_DIR="$HOME/scratch/VQGAN/evals/$RUNNAME"
-    
+
     SAVE_EXISTS=false
     EVAL_EXISTS=false
-    
-    if is_dir_nonempty "$SAVE_DIR"; then
-        SAVE_EXISTS=true
-    fi
-    
-    if is_dir_nonempty "$EVAL_DIR"; then
-        EVAL_EXISTS=true
-    fi
-    
-    # Skip this job if directories exist and we're not forcing a rerun
+
+    is_dir_nonempty "$SAVE_DIR" && SAVE_EXISTS=true
+    is_dir_nonempty "$EVAL_DIR" && EVAL_EXISTS=true
+
     if [ "$SAVE_EXISTS" = true ] && [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
-        echo "Skipping job '$JOB_NAME': Save directory and eval directory already exist."
-        echo "Use --force to resubmit this job anyway."
+        echo "Skipping job '$JOB_NAME': Save and eval directories exist."
         continue
     fi
-    
-    # Prepare the parameter string for the Python command
+
     PARAM_STRING=""
     for pair in "${PARAM_PAIRS[@]}"; do
-        if [[ -z "$pair" ]]; then
-            continue
-        fi
-
         KEY=${pair%%=*}
         VALUE=${pair#*=}
-
-        # Normalize booleans
         lower_value="${VALUE,,}"
-        if [[ "$lower_value" == "true" ]]; then
-            VALUE="True"
-        elif [[ "$lower_value" == "false" ]]; then
-            VALUE="False"
-        fi
-
-        # Add list values as multiple tokens (no quotes!)
-        if [[ "$VALUE" == *" "* ]]; then
-            PARAM_STRING+=" --$KEY $VALUE"
-        else
-            PARAM_STRING+=" --$KEY $VALUE"
-        fi
+        if [[ "$lower_value" == "true" ]]; then VALUE="True"; fi
+        if [[ "$lower_value" == "false" ]]; then VALUE="False"; fi
+        PARAM_STRING+=" --$KEY $VALUE"
     done
-    
-    # Create the training job script
+
     cat > "$JOB_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
@@ -192,61 +134,55 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
 . ~/.bashrc
 runname="$RUNNAME"
-echo "Starting ${JOB_TYPE} job with name: \$runname"
 wd=~/scratch/VQGAN/src
 sd=~/scratch/VQGAN/saves/\$runname
 
-# Check if directory already exists and has content
-if [ -d "\$sd" ] && [ "\$(ls -A "\$sd" 2>/dev/null)" ]; then
-    echo "Save directory \$sd already exists and contains files."
-    echo "Checking if training completed successfully..."
-    
+if [ -d "\$sd" ] && [ "\$(ls -A "\$sd")" ]; then
     if [ -f "\$sd/training_status.txt" ] && grep -q "Training completed successfully" "\$sd/training_status.txt"; then
-        echo "Training was already completed successfully. Exiting job."
+        echo "Training already completed. Exiting."
         exit 0
     else
-        echo "Previous training may not have completed successfully. Continuing with job."
-        # Optionally make a backup of previous run
-        if [ -f "\$sd/output.txt" ]; then
-            mv "\$sd/output.txt" "\$sd/output.txt.bak.\$(date +%Y%m%d%H%M%S)"
-        fi
+        [ -f "\$sd/output.txt" ] && mv "\$sd/output.txt" "\$sd/output.txt.bak.\$(date +%Y%m%d%H%M%S)"
     fi
 else
     mkdir -p "\$sd"
 fi
 
-# Print resource allocation information
-echo "SLURM_JOB_ID: \$SLURM_JOB_ID"
-echo "SLURM_JOB_NODELIST: \$SLURM_JOB_NODELIST"
-echo "CUDA_VISIBLE_DEVICES: \$CUDA_VISIBLE_DEVICES"
-nvidia-smi
-
-# Copy this job script to the save directory for reference
-cp "$JOB_SCRIPT" "\$sd/job_script.sh"
-
-# Make sure to unload python to prevent conflict with default installed packages on HPC
 module unload python
 source ~/vqgan_env/bin/activate
 cd "\$wd"
 
-# Run training with the specified parameters
-echo "Running $PYTHON_SCRIPT with parameters: $PARAM_STRING --run_name \$runname"
+echo "Running $PYTHON_SCRIPT with: $PARAM_STRING --run_name \$runname"
 python $PYTHON_SCRIPT $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
 
-# Write success/failure status to a file for reference
 if [ \$? -eq 0 ]; then
     echo "Training completed successfully at \$(date)" > "\$sd/training_status.txt"
     exit 0
 else
-    echo "Training failed with exit code \$? at \$(date)" > "\$sd/training_status.txt"
+    echo "Training failed at \$(date)" > "\$sd/training_status.txt"
     exit 1
 fi
 EOL
 
-    # Only create evaluation script for VQGAN/CVQGAN jobs, not transformer jobs
-    if [ "$IS_TRANSFORMER" = false ]; then
-        # Create the evaluation job script
-        cat > "$EVAL_SCRIPT" << EOL
+    chmod +x "$JOB_SCRIPT"
+
+    if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
+        echo "Skipping training job for '$JOB_NAME'"
+    else
+        echo "Submitting training job: sbatch $JOB_SCRIPT"
+        TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
+
+        if [ -n "$TRAIN_JOBID" ]; then
+            echo "Submitted training job with ID: $TRAIN_JOBID"
+
+            if [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
+                echo "Skipping evaluation job for '$JOB_NAME': Eval directory exists"
+            else
+                EVAL_PY_SCRIPT="eval_vqgan.py"
+                EVAL_ARG="--model_name \$runname"
+                [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname"
+
+                cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
 #SBATCH --job-name=eval_${JOB_NAME}
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
@@ -260,96 +196,32 @@ EOL
 #SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
-# Model name is passed from the batch submit script
-model_name="$RUNNAME"
-echo "Evaluating model: \$model_name"
-
-# Print resource allocation information
-echo "SLURM_JOB_ID: \$SLURM_JOB_ID"
-echo "SLURM_JOB_NODELIST: \$SLURM_JOB_NODELIST"
-echo "CUDA_VISIBLE_DEVICES: \$CUDA_VISIBLE_DEVICES"
-nvidia-smi
-
-# Setup environment
 . ~/.bashrc
+runname="$RUNNAME"
 wd=~/scratch/VQGAN/src
-eval_dir=~/scratch/VQGAN/evals/\$model_name
+eval_dir=~/scratch/VQGAN/evals/\$runname
 
-# Check if directory already exists and has content
-if [ -d "\$eval_dir" ] && [ "\$(ls -A "\$eval_dir" 2>/dev/null)" ]; then
-    echo "Evaluation directory \$eval_dir already exists and contains files."
-    echo "Checking if evaluation completed successfully..."
-    
-    if [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evaluation completed" "\$eval_dir/eval_output.txt"; then
-        echo "Evaluation was already completed. Exiting job."
-        exit 0
-    else
-        echo "Previous evaluation may not have completed successfully. Continuing with job."
-        # Optionally make a backup of previous evaluation
-        if [ -f "\$eval_dir/eval_output.txt" ]; then
-            mv "\$eval_dir/eval_output.txt" "\$eval_dir/eval_output.txt.bak.\$(date +%Y%m%d%H%M%S)"
-        fi
-    fi
-else
-    mkdir -p "\$eval_dir"
-fi
-
-# Make sure to unload python to prevent conflict with default installed packages on HPC
 module unload python
 source ~/vqgan_env/bin/activate
 cd "\$wd"
 
-# Run evaluation
-echo "Starting evaluation at \$(date)"
-python eval_vqgan.py --model_name "\$model_name" > "\$eval_dir/eval_output.txt" 2>&1
+if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evaluation completed" "\$eval_dir/eval_output.txt"; then
+    echo "Evaluation already completed."
+    exit 0
+fi
 
+mkdir -p "\$eval_dir"
+python $EVAL_PY_SCRIPT $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
-        # Make eval script executable
-        chmod +x "$EVAL_SCRIPT"
-    fi
-
-    # Make training script executable
-    chmod +x "$JOB_SCRIPT"
-    
-    # Submit the training job
-    if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
-        echo "Skipping training job submission for '$JOB_NAME': Save directory already exists"
-        
-        # Check if we should still run the evaluation job (only for VQGAN/CVQGAN)
-        if [ "$IS_TRANSFORMER" = false ] && [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
-            echo "Submitting just the evaluation job for '$JOB_NAME'"
-            EVAL_JOBID=$(sbatch "$EVAL_SCRIPT" | awk '{print $4}')
-            echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
-        elif [ "$IS_TRANSFORMER" = false ]; then
-            echo "Skipping evaluation job submission for '$JOB_NAME': Eval directory already exists"
-        fi
-    else
-        echo "Submitting training job: sbatch $JOB_SCRIPT"
-        TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
-        
-        if [ -n "$TRAIN_JOBID" ]; then
-            echo "Submitted ${JOB_TYPE} training job $JOB_NAME with ID: $TRAIN_JOBID"
-            
-            # Only submit evaluation job for VQGAN/CVQGAN jobs
-            if [ "$IS_TRANSFORMER" = false ]; then
-                # Skip evaluation job if it already exists and we're not forcing
-                if [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
-                    echo "Skipping evaluation job submission for '$JOB_NAME': Eval directory already exists"
-                else
-                    # Submit evaluation job with dependency on training job
-                    echo "Submitting evaluation job with dependency on job $TRAIN_JOBID"
-                    EVAL_JOBID=$(sbatch --dependency=afterok:$TRAIN_JOBID "$EVAL_SCRIPT" | awk '{print $4}')
-                    echo "Submitted evaluation job for $JOB_NAME with ID: $EVAL_JOBID"
-                fi
+                chmod +x "$EVAL_SCRIPT"
+                echo "Submitting evaluation job with dependency on $TRAIN_JOBID"
+                sbatch --dependency=afterok:$TRAIN_JOBID "$EVAL_SCRIPT"
             fi
         else
-            echo "Error: Failed to submit training job $JOB_NAME"
+            echo "Training job failed to submit for '$JOB_NAME'"
         fi
     fi
-    
 done < "$CONFIG_FILE"
 
-echo "Job submission process completed."
-echo "Temporary job scripts are stored in: $TEMP_DIR"
-echo "You may delete this directory when all jobs have completed."
+echo "All jobs submitted. Scripts in: $TEMP_DIR"
