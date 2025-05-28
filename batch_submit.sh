@@ -2,7 +2,6 @@
 # Script to submit multiple VQGAN/CVQGAN/Transformer training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
 
-# Function to print usage information
 function print_usage() {
     echo "Usage: bash batch_submit_with_transformer.sh [options]"
     echo ""
@@ -67,7 +66,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     ((LINE_NUM++))
     JOB_NAME=${line%%:*}
     PARAMS=${line#*:}
-    RUNNAME="${JOB_NAME}"
+    RUNNAME="$JOB_NAME"
 
     IS_TRANSFORMER=false
     IS_CONDITIONAL_VQGAN=false
@@ -103,11 +102,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     is_dir_nonempty "$SAVE_DIR" && SAVE_EXISTS=true
     is_dir_nonempty "$EVAL_DIR" && EVAL_EXISTS=true
 
-    if [ "$SAVE_EXISTS" = true ] && [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
-        echo "Skipping job '$JOB_NAME': Save and eval directories exist."
-        continue
-    fi
-
     PARAM_STRING=""
     for pair in "${PARAM_PAIRS[@]}"; do
         KEY=${pair%%=*}
@@ -118,66 +112,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         PARAM_STRING+=" --$KEY $VALUE"
     done
 
-    cat > "$JOB_SCRIPT" << EOL
-#!/bin/bash
-#SBATCH --job-name=${JOB_NAME}
-#SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_${JOB_TYPE}-%A_%a.out
-#SBATCH -t 12:00:00
-#SBATCH -A fuge-prj-jrl
-#SBATCH -p gpu
-#SBATCH --exclusive
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:h100:1
-#SBATCH --gpu-bind=verbose,per_task:1
+    if [ "$SAVE_EXISTS" = true ]; then
+        echo "Skipping training for '$JOB_NAME': save dir exists."
 
-. ~/.bashrc
-runname="$RUNNAME"
-wd=~/scratch/VQGAN/src
-sd=~/scratch/VQGAN/saves/\$runname
-
-if [ -d "\$sd" ] && [ "\$(ls -A "\$sd")" ]; then
-    if [ -f "\$sd/training_status.txt" ] && grep -q "Training completed successfully" "\$sd/training_status.txt"; then
-        echo "Training already completed. Exiting."
-        exit 0
-    else
-        [ -f "\$sd/output.txt" ] && mv "\$sd/output.txt" "\$sd/output.txt.bak.\$(date +%Y%m%d%H%M%S)"
-    fi
-else
-    mkdir -p "\$sd"
-fi
-
-module unload python
-source ~/vqgan_env/bin/activate
-cd "\$wd"
-
-echo "Running $PYTHON_SCRIPT with: $PARAM_STRING --run_name \$runname"
-python $PYTHON_SCRIPT $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
-
-if [ \$? -eq 0 ]; then
-    echo "Training completed successfully at \$(date)" > "\$sd/training_status.txt"
-    exit 0
-else
-    echo "Training failed at \$(date)" > "\$sd/training_status.txt"
-    exit 1
-fi
-EOL
-
-    chmod +x "$JOB_SCRIPT"
-
-    if [ "$SAVE_EXISTS" = true ] && [ "$FORCE" = false ]; then
-        echo "Skipping training job for '$JOB_NAME'"
-    else
-        echo "Submitting training job: sbatch $JOB_SCRIPT"
-        TRAIN_JOBID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
-
-        if [ -n "$TRAIN_JOBID" ]; then
-            echo "Submitted training job with ID: $TRAIN_JOBID"
-
-            if [ "$EVAL_EXISTS" = true ] && [ "$FORCE" = false ]; then
-                echo "Skipping evaluation job for '$JOB_NAME': Eval directory exists"
-            else
+        if [ -f "$SAVE_DIR/training_status.txt" ] && grep -q "Training completed successfully" "$SAVE_DIR/training_status.txt"; then
+            if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
                 EVAL_PY_SCRIPT="eval_vqgan.py"
                 EVAL_ARG="--model_name \$runname"
                 [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname"
@@ -215,13 +154,57 @@ python $EVAL_PY_SCRIPT $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
                 chmod +x "$EVAL_SCRIPT"
-                echo "Submitting evaluation job with dependency on $TRAIN_JOBID"
-                sbatch --dependency=afterok:$TRAIN_JOBID "$EVAL_SCRIPT"
+                echo "Submitting evaluation job: sbatch $EVAL_SCRIPT"
+                sbatch "$EVAL_SCRIPT"
+            else
+                echo "Skipping evaluation for '$JOB_NAME': already exists."
             fi
         else
-            echo "Training job failed to submit for '$JOB_NAME'"
+            echo "Training not confirmed complete for '$JOB_NAME'; skipping eval."
         fi
+        continue
     fi
+
+    cat > "$JOB_SCRIPT" << EOL
+#!/bin/bash
+#SBATCH --job-name=${JOB_NAME}
+#SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_${JOB_TYPE}-%A_%a.out
+#SBATCH -t 12:00:00
+#SBATCH -A fuge-prj-jrl
+#SBATCH -p gpu
+#SBATCH --exclusive
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:h100:1
+#SBATCH --gpu-bind=verbose,per_task:1
+
+. ~/.bashrc
+runname="$RUNNAME"
+wd=~/scratch/VQGAN/src
+sd=~/scratch/VQGAN/saves/\$runname
+
+mkdir -p "\$sd"
+
+module unload python
+source ~/vqgan_env/bin/activate
+cd "\$wd"
+
+echo "Running $PYTHON_SCRIPT with: $PARAM_STRING --run_name \$runname"
+python $PYTHON_SCRIPT $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
+
+if [ \$? -eq 0 ]; then
+    echo "Training completed successfully at \$(date)" > "\$sd/training_status.txt"
+    exit 0
+else
+    echo "Training failed at \$(date)" > "\$sd/training_status.txt"
+    exit 1
+fi
+EOL
+
+    chmod +x "$JOB_SCRIPT"
+    echo "Submitting training job: sbatch $JOB_SCRIPT"
+    sbatch "$JOB_SCRIPT"
 done < "$CONFIG_FILE"
 
 echo "All jobs submitted. Scripts in: $TEMP_DIR"
