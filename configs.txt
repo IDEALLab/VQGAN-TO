@@ -7,6 +7,7 @@
 # Baseline with default parameters
 baseline:
 repeat_baseline:
+repeat2_baseline:
 
 # 1) Latent dimension ablation
 latent_32:latent_dim=32
@@ -15,24 +16,28 @@ latent_8:latent_dim=8
 latent_4:latent_dim=4
 latent_4_ND:latent_dim=4,disc_start=999999
 repeat_latent_4_ND:latent_dim=4,disc_start=999999
+repeat2_latent_4_ND:latent_dim=4,disc_start=999999
 
 # 2) Codebook vector count ablation
 codebook_128:num_codebook_vectors=128
 codebook_64:num_codebook_vectors=64
 codebook_32:num_codebook_vectors=32
 repeat_codebook_32:num_codebook_vectors=32
+repeat2_codebook_32:num_codebook_vectors=32
 
 # 3) Learning rate ablation
 lr_med:learning_rate=2e-04
 lr_high:learning_rate=2e-03
 lr_med_ND:learning_rate=2e-04,disc_start=999999
 repeat_lr_med_ND:learning_rate=2e-04,disc_start=999999
+repeat2_lr_med_ND:learning_rate=2e-04,disc_start=999999
 lr_high_ND:learning_rate=2e-03,disc_start=999999
 
 # 4) Discriminator start ablation
 disc_early:disc_start=5
 disc_none:disc_start=999999
 repeat_disc_none:disc_start=999999
+repeat2_disc_none:disc_start=999999
 
 # 5) Spectral normalization of the discriminator
 spec_norm_disc:spectral_disc=true
@@ -58,6 +63,7 @@ c4:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,late
 
 c5:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2.25e-05,disc_start=999999
 c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
+repeat2_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
 c7:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2.25e-05,disc_start=999999
 c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
 

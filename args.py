@@ -9,14 +9,26 @@ from utils import str2bool
 def get_args():
     parser = argparse.ArgumentParser(description="VQGAN Training Args")
 
-    # General
+    # Metadata
+    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
+    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
+    parser.add_argument('--dropP_path', type=str, default='../data/dropP_4579.npy')
+    parser.add_argument('--meanT_path', type=str, default='../data/meanT_4579.npy')
+    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--algo', type=str, default='vqgan')
+    parser.add_argument('--problem_id', type=str, default='mto')
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--track', type=str2bool, default=True)
+    parser.add_argument('--save_model', type=str2bool, default=True)
+    parser.add_argument('--sample_interval', type=int, default=1) ############################################################
+    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
+
+    # VQGAN Stage 1 (Autoencoder): Codebook & Training
     parser.add_argument('--latent_dim', type=int, default=256)
     parser.add_argument('--image_size', type=int, default=256)
     parser.add_argument('--num_codebook_vectors', type=int, default=1024)
     parser.add_argument('--beta', type=float, default=0.25)
     parser.add_argument('--image_channels', type=int, default=1)
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
-    parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=2.25e-05)
@@ -27,38 +39,28 @@ def get_args():
     parser.add_argument('--rec_loss_factor', type=float, default=1.0)
     parser.add_argument('--perceptual_loss_factor', type=float, default=1.0)
 
-    # Metadata
-    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
-    parser.add_argument('--problem_id', type=str, default='mto')
-    parser.add_argument('--algo', type=str, default='vqgan')
-    parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--track', type=str2bool, default=True)
-    parser.add_argument('--save_model', type=str2bool, default=True)
-    parser.add_argument('--sample_interval', type=int, default=1) ############################################################
-    parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
-
-    # Decoder / Encoder
-    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128])
-    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16])
-    parser.add_argument('--decoder_num_res_blocks', type=int, default=3)
-    parser.add_argument('--decoder_start_resolution', type=int, default=16)
-
-    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512])
-    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16])
-    parser.add_argument('--encoder_num_res_blocks', type=int, default=2)
-    parser.add_argument('--encoder_start_resolution', type=int, default=256)
-
-    # VQGAN / Training options
     parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True)
     parser.add_argument('--spectral_disc', type=str2bool, default=False)
     parser.add_argument('--use_DAE', type=str2bool, default=False)
     parser.add_argument('--use_Online', type=str2bool, default=False)
 
-    # Transformer
+    # VQGAN Stage 1 (Autoencoder): Encoder/Decoder
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512])
+    parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16])
+    parser.add_argument('--encoder_num_res_blocks', type=int, default=2)
+    parser.add_argument('--encoder_start_resolution', type=int, default=256)
+
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=[512, 256, 256, 128, 128])
+    parser.add_argument('--decoder_attn_resolutions', type=int, nargs='+', default=[16])
+    parser.add_argument('--decoder_num_res_blocks', type=int, default=3)
+    parser.add_argument('--decoder_start_resolution', type=int, default=16)
+
+    # # VQGAN Stage 2 (Transformer)
     parser.add_argument('--is_t', type=str2bool, default=False)
     parser.add_argument('--t_learning_rate', type=float, default=4.5e-06)
     parser.add_argument('--t_early_stop_patience', type=int, default=10)
-    parser.add_argument('--model_name', type=str, default="c6")
+    parser.add_argument('--t_name', type=str, default="Tr_baseline")
+    parser.add_argument('--model_name', type=str, default="baseline")
     parser.add_argument('--c_model_name', type=str, default="cvq")
     parser.add_argument('--pkeep', type=float, default=1.0)
     parser.add_argument('--sos_token', type=int, default=0)
@@ -74,7 +76,7 @@ def get_args():
     # 'gpt2-large':   dict(n_layer=36, n_head=20, n_embd=1280), # 774M params
     # 'gpt2-xl':      dict(n_layer=48, n_head=25, n_embd=1600), # 1558M params
 
-    # CVQGAN
+    # Conditional VQGAN (CVQGAN)
     parser.add_argument('--is_c', type=str2bool, default=False)
     parser.add_argument('--c_input_dim', type=int, default=3)
     parser.add_argument('--c_hidden_dim', type=int, default=256)
@@ -84,7 +86,7 @@ def get_args():
 
     args = parser.parse_args()
 
-    # Add derived paths
+    # Add derived paths for Stage 2 (Transformer)
     args.checkpoint_path = os.path.join("../saves", args.model_name, "checkpoints", "vqgan.pth")
     args.c_checkpoint_path = os.path.join("../saves", args.c_model_name, "checkpoints", "vqgan.pth")
 
