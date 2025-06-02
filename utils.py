@@ -184,6 +184,11 @@ def plot_3d_scatter_comparison(decoded_images, real_images, fname):
     plt.savefig(fname, dpi=300)
     plt.close()
 
+def process_state_dict(state_dict):
+    if any("_orig_mod." in k for k in list(state_dict.keys())[:5]):
+        print("Detected '_orig_mod.' in keys, removing all occurrences from keys...")
+        state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+    return state_dict
 
 def load_vqgan(args):
     """
@@ -197,11 +202,7 @@ def load_vqgan(args):
         raise FileNotFoundError(f"Model checkpoint not found at {model_path}")
 
     checkpoint = torch.load(model_path, map_location=args.device, weights_only=True)
-    state_dict = checkpoint["generator"]
-
-    if all(k.startswith("_orig_mod.") for k in list(state_dict.keys())[:5]):
-        print("Detected _orig_mod. prefix, removing it from keys...")
-        state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+    state_dict = process_state_dict(checkpoint["generator"])
 
     model = VQGAN(args).to(args.device)
     model.load_state_dict(state_dict, strict=False)

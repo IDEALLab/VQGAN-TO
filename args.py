@@ -115,7 +115,7 @@ def load_args(args):
 
     training_args_path = os.path.join(
         "../saves",
-        args.c_model_name if args.is_c else args.model_name,
+        args.t_name if args.is_t else (args.c_model_name if args.is_c else args.model_name),
         "training_args.json"
     )
 

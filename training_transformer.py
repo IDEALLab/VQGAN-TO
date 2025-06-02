@@ -88,7 +88,7 @@ class TrainTransformer:
             self.model.eval()
             with torch.no_grad():
                 sample_imgs, sample_cond = next(iter(val_dataloader))
-                sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device))[1]
+                sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=1)[1]
 
                 for imgs, c in val_dataloader:
                     imgs = imgs.to(device=args.device, non_blocking=True)

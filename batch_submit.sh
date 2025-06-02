@@ -119,7 +119,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
             if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
                 EVAL_PY_SCRIPT="eval_vqgan.py"
                 EVAL_ARG="--model_name \$runname"
-                [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname"
+                [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname --is_t True"
 
                 cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
@@ -201,10 +201,56 @@ else
     exit 1
 fi
 EOL
-
     chmod +x "$JOB_SCRIPT"
+
+    # Submit training job and capture job ID
     echo "Submitting training job: sbatch $JOB_SCRIPT"
-    sbatch "$JOB_SCRIPT"
+    TRAIN_JOB_ID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
+    echo "Training job submitted with ID $TRAIN_JOB_ID"
+
+    # Prepare evaluation script
+    EVAL_PY_SCRIPT="eval_vqgan.py"
+    EVAL_ARG="--model_name \$runname"
+    [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname --is_t True"
+
+    cat > "$EVAL_SCRIPT" << EOL
+#!/bin/bash
+#SBATCH --job-name=eval_${JOB_NAME}
+#SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_eval-%j.out
+#SBATCH -t 0:30:00
+#SBATCH -A fuge-prj-jrl
+#SBATCH -p gpu
+#SBATCH --exclusive
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:h100:1
+#SBATCH --gpu-bind=verbose,per_task:1
+
+. ~/.bashrc
+runname="$RUNNAME"
+wd=~/scratch/VQGAN/src
+eval_dir=~/scratch/VQGAN/evals/\$runname
+
+module unload python
+source ~/vqgan_env/bin/activate
+cd "\$wd"
+
+if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evaluation completed" "\$eval_dir/eval_output.txt"; then
+    echo "Evaluation already completed."
+    exit 0
+fi
+
+mkdir -p "\$eval_dir"
+python $EVAL_PY_SCRIPT $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
+echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
+EOL
+
+    chmod +x "$EVAL_SCRIPT"
+
+    # Submit evaluation job with dependency on training job success
+    echo "Submitting evaluation job with dependency on job $TRAIN_JOB_ID"
+    sbatch --dependency=afterok:$TRAIN_JOB_ID "$EVAL_SCRIPT"
 done < "$CONFIG_FILE"
 
 echo "All jobs submitted. Scripts in: $TEMP_DIR"

@@ -81,19 +81,9 @@ cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=100
 
 
 ################## TRANSFORMER #################
-Tr_baseline:is_t=true,model_name=baseline,c_model_name=cvq
-Tr_baseline_long:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epochs=500
-Tr_c6:is_t=true,model_name=c6,c_model_name=cvq
-Tr_c6_mini:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1
-Tr_c6_mini_long:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=500
-Tr_c6_mini_1000:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10
-Tr_baseline_mini_1000:is_t=true,model_name=baseline,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10
-
-# Noted that in the initial transformer config setup, changing learning_rate had no effect on training
-    # lr was manually set to 4.5e-06 in configure_optimizers() of training_transformer.py
-    # Addressed by creating a new argument t_learning_rate with default 4.5e-06
-
-
-################## DEBUG TESTS 26 MAY 2025 ##################
-X_c:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,epochs=500
-X_Tr:is_t=true,model_name=c6,c_model_name=cvq,n_layer=4,n_head=4,n_embd=128,dropout=0.1,epochs=1000,sample_interval=10,t_learning_rate=4.5e-05
+Tr_baseline:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10
+Tr_c6:is_t=true,model_name=c6,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10
+Tr_baseline_mini:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128
+Tr_c6_mini:is_t=true,model_name=c6,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128
+Tr_baseline_mini_highLR:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128,t_learning_rate=4.5e-05
+Tr_c6_mini_highLR:is_t=true,model_name=c6,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128,t_learning_rate=4.5e-05

@@ -13,13 +13,16 @@ class VQGANTransformer(nn.Module):
 
         self.sos_token = args.sos_token
 
-        vq_args = load_args(args)
+        temp_vq_args = deepcopy(args)
+        temp_vq_args.is_t = False
+        vq_args = load_args(temp_vq_args)
         self.vqgan = load_vqgan(vq_args).eval()
 
         if args.t_is_c:
             # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
             temp_cvq_args = deepcopy(args)
             temp_cvq_args.is_c = True
+            temp_cvq_args.is_t = False
             cvq_args = load_args(temp_cvq_args)
             self.cvqgan = load_vqgan(cvq_args).eval()
 
@@ -132,7 +135,7 @@ class VQGANTransformer(nn.Module):
         return x
 
     @torch.no_grad()
-    def log_images(self, x, c):
+    def log_images(self, x, c, top_k=100):
         log = dict()
 
         _, indices = self.encode_to_z(x)
@@ -143,11 +146,11 @@ class VQGANTransformer(nn.Module):
             sos_tokens = sos_tokens.long().to("cuda")
 
         start_indices = indices[:, :indices.shape[1] // 2]
-        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1])
+        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1], top_k=top_k)
         half_sample = self.z_to_image(sample_indices)
 
         start_indices = indices[:, :0]
-        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1])
+        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1], top_k=top_k)
         full_sample = self.z_to_image(sample_indices)
 
         x_rec = self.z_to_image(indices)

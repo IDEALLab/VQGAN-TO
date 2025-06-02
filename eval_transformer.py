@@ -6,7 +6,7 @@ from tqdm import tqdm
 import seaborn as sns
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds, plot_data
+from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict
 from args import get_args, load_args, print_args
 
 
@@ -23,9 +23,9 @@ class EvalTransformer:
         args = load_args(args)
 
         self.model = VQGANTransformer(args).to(device=args.device)
-        ckpt_path = os.path.join("../saves", args.t_name, "checkpoints", "transformer.pt")
-        assert os.path.exists(ckpt_path), f"Missing checkpoint: {ckpt_path}"
-        self.model.load_state_dict(torch.load(ckpt_path, map_location=args.device))
+        ckpt_path = os.path.join("../saves", args.run_name, "checkpoints", "transformer.pt")
+        checkpoint = process_state_dict(torch.load(ckpt_path, map_location=args.device, weights_only=True))
+        self.model.load_state_dict(checkpoint, strict=False)
         self.model.eval()
 
         self.evaluate(args)
@@ -52,7 +52,7 @@ class EvalTransformer:
                 all_losses.append(loss.item())
 
                 # Generate full samples
-                logs, _ = self.model.log_images(imgs, cond)
+                logs, _ = self.model.log_images(imgs, cond, top_k=1)
                 full_sample = logs["full_sample"].clamp(0, 1).cpu().numpy()
                 recon = logs["rec"].clamp(0, 1).cpu().numpy()
                 original = imgs.cpu().numpy()
@@ -109,5 +109,5 @@ class EvalTransformer:
 
 if __name__ == '__main__':
     args = get_args()
-    print_args(args, title="Transformer Evaluation Arguments")
-    EvalTransformer(args)
+    print_args(args, title="Initial Arguments")
+    eval_transformer = EvalTransformer(args)
