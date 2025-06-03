@@ -105,11 +105,6 @@ class TrainTransformer:
                 self.log_losses['epochs'].append(epoch)
                 self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
                 self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
-                
-                # Save model if validation loss improves
-                if val_loss_avg < best_val_loss:
-                    best_val_loss = val_loss_avg
-                    torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
 
                 if epoch % args.sample_interval == 0:
                     # Plot and save losses
@@ -129,9 +124,10 @@ class TrainTransformer:
                     sample_imgs, sample_cond = next(iter(val_dataloader))
                     sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=True)[1]
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
-                    # Save the latest model state
-                    print("Saving model at epoch", epoch)
-                    torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
+                    # Save model if validation loss improved from the last interval
+                    if val_loss_avg < best_val_loss:
+                        best_val_loss = val_loss_avg
+                        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
                     # Save the loss data with a fixed name (overwriting previous versions)
                     np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
         
