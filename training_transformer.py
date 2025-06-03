@@ -70,6 +70,7 @@ class TrainTransformer:
 
     def train(self, args):
         (dataloader, val_dataloader, _), means, stds = get_data(args, use_val_split=True)
+        best_val_loss = float('inf')
 
         for epoch in tqdm(range(args.epochs)):
             train_losses = []
@@ -87,9 +88,6 @@ class TrainTransformer:
             # Validation loss
             self.model.eval()
             with torch.no_grad():
-                sample_imgs, sample_cond = next(iter(val_dataloader))
-                sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=1)[1]
-
                 for imgs, c in val_dataloader:
                     imgs = imgs.to(device=args.device, non_blocking=True)
                     c = c.to(device=args.device, non_blocking=True)
@@ -107,14 +105,12 @@ class TrainTransformer:
                 self.log_losses['epochs'].append(epoch)
                 self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
                 self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
-
-                # Early stopping: stop if val loss hasn't improved in the last N epochs. Can set to 999999 to disable.
-                if len(self.log_losses['val_loss_avg']) > args.t_early_stop_patience:
-                    recent = self.log_losses['val_loss_avg'][-(args.t_early_stop_patience + 1):]
-                    if all(recent[i] >= recent[0] for i in range(1, args.t_early_stop_patience + 1)):
-                        print(f"Early stopping at epoch {epoch} due to no val loss improvement in {args.t_early_stop_patience} epochs.")
-                        break
                 
+                # Save model if validation loss improves
+                if val_loss_avg < best_val_loss:
+                    best_val_loss = val_loss_avg
+                    torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
+
                 if epoch % args.sample_interval == 0:
                     # Plot and save losses
                     plt.figure(figsize=(10, 5))
@@ -130,11 +126,17 @@ class TrainTransformer:
                     plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
                     plt.close()
                     
+                    sample_imgs, sample_cond = next(iter(val_dataloader))
+                    sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=True)[1]
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save the latest model state
+                    print("Saving model at epoch", epoch)
                     torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
                     # Save the loss data with a fixed name (overwriting previous versions)
                     np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
+        
+        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer_final.pt"))
+
 
 if __name__ == '__main__':
     args = get_args()

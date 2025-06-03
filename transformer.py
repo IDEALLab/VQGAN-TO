@@ -95,7 +95,7 @@ class VQGANTransformer(nn.Module):
         return out
 
     @torch.no_grad()
-    def sample(self, x, c, steps, temperature=1.0, top_k=100):
+    def sample(self, x, c, steps, temperature=1.0, top_k=100, greedy=False):
         self.transformer.eval()
         x = torch.cat((c, x), dim=1)
         
@@ -126,7 +126,10 @@ class VQGANTransformer(nn.Module):
 
             probs = F.softmax(logits, dim=-1)
 
-            ix = torch.multinomial(probs, num_samples=1)
+            if greedy:
+                ix = torch.argmax(probs, dim=-1, keepdim=True)
+            else:
+                ix = torch.multinomial(probs, num_samples=1)
 
             x = torch.cat((x, ix), dim=1)
 
@@ -135,7 +138,7 @@ class VQGANTransformer(nn.Module):
         return x
 
     @torch.no_grad()
-    def log_images(self, x, c, top_k=100):
+    def log_images(self, x, c, top_k=100, greedy=False):
         log = dict()
 
         _, indices = self.encode_to_z(x)
@@ -146,11 +149,11 @@ class VQGANTransformer(nn.Module):
             sos_tokens = sos_tokens.long().to("cuda")
 
         start_indices = indices[:, :indices.shape[1] // 2]
-        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1], top_k=top_k)
+        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1], top_k=top_k, greedy=greedy)
         half_sample = self.z_to_image(sample_indices)
 
         start_indices = indices[:, :0]
-        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1], top_k=top_k)
+        sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1], top_k=top_k, greedy=greedy)
         full_sample = self.z_to_image(sample_indices)
 
         x_rec = self.z_to_image(indices)

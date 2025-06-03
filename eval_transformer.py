@@ -52,7 +52,7 @@ class EvalTransformer:
                 all_losses.append(loss.item())
 
                 # Generate full samples
-                logs, _ = self.model.log_images(imgs, cond, top_k=1)
+                logs, _ = self.model.log_images(imgs, cond, top_k=None, greedy=True)
                 full_sample = logs["full_sample"].clamp(0, 1).cpu().numpy()
                 recon = logs["rec"].clamp(0, 1).cpu().numpy()
                 original = imgs.cpu().numpy()
