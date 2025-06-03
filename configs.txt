@@ -81,7 +81,15 @@ cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=100
 
 
 ################## TRANSFORMER #################
+# Ablation study with baseline and best-performing Stage 1 model: Decreasing transformer size (starting w/ dropout=0.0)
 Tr_baseline:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10
-Tr_c6:is_t=true,model_name=c6,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10
-Tr_baseline_mini:is_t=true,model_name=baseline,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128
-Tr_c6_mini:is_t=true,model_name=c6,c_model_name=cvq,dropout=0.1,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=128
+Tr_baseline_1:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=10,n_head=10,n_embd=384
+Tr_baseline_2:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192
+Tr_baseline_3:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=6,n_head=6,n_embd=96
+Tr_baseline_4:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=48
+
+Tr_c6:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10
+Tr_c6_1:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=10,n_head=10,n_embd=384
+Tr_c6_2:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192
+Tr_c6_3:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=6,n_head=6,n_embd=96
+Tr_c6_4:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=48
