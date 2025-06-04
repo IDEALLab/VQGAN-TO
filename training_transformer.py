@@ -127,6 +127,7 @@ class TrainTransformer:
                     # Save model if validation loss improved from the last interval
                     if val_loss_avg < best_val_loss:
                         best_val_loss = val_loss_avg
+                        tqdm.write("Transformer checkpoint saved at epoch {}.".format(epoch))
                         torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
                     # Save the loss data with a fixed name (overwriting previous versions)
                     np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))

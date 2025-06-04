@@ -33,13 +33,13 @@ class VQGANTransformer(nn.Module):
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
-            vocab_size=vq_args.num_codebook_vectors,
+            vocab_size=args.num_codebook_vectors,
             block_size=block_size,
-            n_layer=vq_args.n_layer,
-            n_head=vq_args.n_head,
-            n_embd=vq_args.n_embd,
-            dropout=vq_args.dropout,    # Add dropout parameter (default in nanoGPT)
-            bias=vq_args.bias           # Add bias parameter (default in nanoGPT)
+            n_layer=args.n_layer,
+            n_head=args.n_head,
+            n_embd=args.n_embd,
+            dropout=args.dropout,    # Add dropout parameter (default in nanoGPT)
+            bias=args.bias           # Add bias parameter (default in nanoGPT)
         )
         self.transformer = GPT(transformer_config)
 
