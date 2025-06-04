@@ -105,6 +105,9 @@ class TrainTransformer:
                 self.log_losses['epochs'].append(epoch)
                 self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
                 self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
+                
+                # Save the loss data with a fixed name (overwriting previous versions)
+                np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
 
                 if epoch % args.sample_interval == 0:
                     # Plot and save losses
@@ -129,8 +132,9 @@ class TrainTransformer:
                         best_val_loss = val_loss_avg
                         tqdm.write("Transformer checkpoint saved at epoch {}.".format(epoch))
                         torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
-                    # Save the loss data with a fixed name (overwriting previous versions)
-                    np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
+                    elif args.early_stop:
+                        print(f"Early stopping at epoch {epoch} due to no val loss improvement...")
+                        break
         
         torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer_final.pt"))
 

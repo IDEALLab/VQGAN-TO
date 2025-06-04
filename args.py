@@ -57,6 +57,7 @@ def get_args():
 
     # # VQGAN Stage 2 (Transformer)
     parser.add_argument('--is_t', type=str2bool, default=False)
+    parser.add_argument('--early_stop', type=str2bool, default=True)
     parser.add_argument('--t_learning_rate', type=float, default=4.5e-06)
     parser.add_argument('--t_name', type=str, default="Tr_baseline")
     parser.add_argument('--model_name', type=str, default="baseline")
