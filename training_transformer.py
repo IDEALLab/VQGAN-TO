@@ -79,7 +79,7 @@ class TrainTransformer:
                 self.optim.zero_grad()
                 imgs = imgs.to(device=args.device, non_blocking=True)
                 c = c.to(device=args.device, non_blocking=True)
-                logits, targets = self.model(imgs, c)
+                logits, targets = self.model(imgs, c, pkeep=(args.pkeep if epoch >= args.pkeep_delay else 1.0))
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
                 loss.backward()
                 self.optim.step()
@@ -125,7 +125,9 @@ class TrainTransformer:
                     plt.close()
                     
                     sample_imgs, sample_cond = next(iter(val_dataloader))
+                    self.model.eval()
                     sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=True)[1]
+                    self.model.train()
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save model if validation loss improved from the last interval
                     if val_loss_avg < best_val_loss:

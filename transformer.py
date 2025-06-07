@@ -44,12 +44,11 @@ class VQGANTransformer(nn.Module):
         self.transformer = GPT(transformer_config)
 
         self.t_is_c = args.t_is_c
-        self.pkeep = args.pkeep
 
     @torch.no_grad()
-    def encode_to_z(self, x):
+    def encode_to_z(self, x, is_c=False):
         # Conditional case
-        if x.ndim == 2:
+        if is_c:
             quant_z, indices, _ = self.cvqgan.encode(x)
         else:
             quant_z, indices, _ = self.vqgan.encode(x)
@@ -63,19 +62,22 @@ class VQGANTransformer(nn.Module):
         image = self.vqgan.decode(ix_to_vectors)
         return image
 
-    def forward(self, x, c):
+    def forward(self, x, c, pkeep=1.0):
         _, indices = self.encode_to_z(x)
 
         if self.t_is_c:
-            _, sos_tokens = self.encode_to_z(c)
+            _, sos_tokens = self.encode_to_z(c, is_c=True)
         else:
             sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
-            sos_tokens = sos_tokens.long().to("cuda")
+            sos_tokens = sos_tokens.long().to(x.device)
 
-        mask = torch.bernoulli(self.pkeep * torch.ones(indices.shape, device=indices.device))
-        mask = mask.round().to(dtype=torch.int64)
-        random_indices = torch.randint_like(indices, self.transformer.config.vocab_size)
-        new_indices = mask * indices + (1 - mask) * random_indices
+        if pkeep < 1.0:
+            mask = torch.bernoulli(pkeep * torch.ones(indices.shape, device=indices.device))
+            mask = mask.round().to(dtype=torch.int64)
+            random_indices = torch.randint_like(indices, self.transformer.config.vocab_size)
+            new_indices = mask * indices + (1 - mask) * random_indices
+        else:
+            new_indices = indices
 
         new_indices = torch.cat((sos_tokens, new_indices), dim=1)
 
@@ -84,7 +86,7 @@ class VQGANTransformer(nn.Module):
         # NanoGPT forward doesn't use embeddings parameter, but takes targets
         # We're ignoring the loss returned by NanoGPT
         logits, _ = self.transformer(new_indices[:, :-1], None)
-        logits = logits[:, sos_tokens.shape[1]-1:]
+        logits = logits[:, -indices.shape[1]:]  # Always predict the last 256 tokens
 
         return logits, target
 
@@ -96,7 +98,6 @@ class VQGANTransformer(nn.Module):
 
     @torch.no_grad()
     def sample(self, x, c, steps, temperature=1.0, top_k=100, greedy=False):
-        self.transformer.eval()
         x = torch.cat((c, x), dim=1)
         
         # Option 1: Use NanoGPT's built-in generate method
@@ -134,7 +135,6 @@ class VQGANTransformer(nn.Module):
             x = torch.cat((x, ix), dim=1)
 
         x = x[:, c.shape[1]:]
-        self.transformer.train()
         return x
 
     @torch.no_grad()
@@ -143,10 +143,10 @@ class VQGANTransformer(nn.Module):
 
         _, indices = self.encode_to_z(x)
         if self.t_is_c:
-            _, sos_tokens = self.encode_to_z(c)
+            _, sos_tokens = self.encode_to_z(c, is_c=True)
         else:
             sos_tokens = torch.ones(x.shape[0], 1) * self.sos_token
-            sos_tokens = sos_tokens.long().to("cuda")
+            sos_tokens = sos_tokens.long().to(x.device)
 
         start_indices = indices[:, :indices.shape[1] // 2]
         sample_indices = self.sample(start_indices, sos_tokens, steps=indices.shape[1] - start_indices.shape[1], top_k=top_k, greedy=greedy)

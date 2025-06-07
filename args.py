@@ -63,6 +63,7 @@ def get_args():
     parser.add_argument('--model_name', type=str, default="baseline")
     parser.add_argument('--c_model_name', type=str, default="cvq")
     parser.add_argument('--pkeep', type=float, default=1.0)
+    parser.add_argument('--pkeep_delay', type=int, default=10)
     parser.add_argument('--sos_token', type=int, default=0)
     parser.add_argument('--t_is_c', type=str2bool, default=True)
     parser.add_argument('--n_layer', type=int, default=12)          # 12
