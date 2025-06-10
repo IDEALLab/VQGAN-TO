@@ -85,7 +85,7 @@ def get_args():
     parser.add_argument('--c_num_codebook_vectors', type=int, default=64)
     parser.add_argument('--c_fmap_dim', type=int, default=4)
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     # Add derived paths for Stage 2 (Transformer)
     args.checkpoint_path = os.path.join("../saves", args.model_name, "checkpoints", "vqgan.pth")
