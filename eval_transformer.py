@@ -69,8 +69,23 @@ class EvalTransformer:
                 all_gen_vfs.extend(gen_vfs)
                 all_real_vfs.extend(ref_vfs)
 
-                # Plot side-by-side images
+                # Get quantized and predicted indices
+                _, indices = self.model.encode_to_z(imgs)  # [B, 256]
+                if self.model.t_is_c:
+                    _, sos_tokens = self.model.encode_to_z(cond, is_c=True)
+                else:
+                    sos_tokens = torch.ones(imgs.shape[0], 1) * self.model.sos_token
+                    sos_tokens = sos_tokens.long().to(imgs.device)
+
+                start = indices[:, :0]  # empty token sequence
+                gen_indices = self.model.sample(start, sos_tokens, steps=indices.shape[1], top_k=None, greedy=True)
+
+                indices = indices.cpu().numpy().reshape(-1,1,16,16)
+                gen_indices = gen_indices.cpu().numpy().reshape(-1,1,16,16)
+
+                # Plot side-by-side images with indices
                 for j in range(len(imgs)):
+                    # Convert main images
                     combined = np.stack([original[j], recon[j], full_sample[j]])
                     fname = os.path.join(self.results_dir, f"sample_{i*args.batch_size + j}.png")
                     plot_data(
@@ -83,6 +98,22 @@ class EvalTransformer:
                         mirror_image=True,
                         cmap=sns.color_palette("viridis", as_cmap=True), 
                         fontsize=20
+                    )
+
+                    idx_combined = np.stack([indices[j].astype(np.float32), gen_indices[j].astype(np.float32)])
+                    idx_fname = os.path.join(self.results_dir, f"indices_{i*args.batch_size + j}.png")
+                    plot_data(
+                        idx_combined,
+                        titles=["VQGAN Indices", "Predicted Indices"],
+                        ranges=[[np.min(indices), np.max(indices)]] * 2,
+                        fname=idx_fname,
+                        cbar=False,
+                        dpi=400,
+                        mirror_image=True,
+                        cmap=sns.color_palette("viridis", as_cmap=True),
+                        fontsize=20,
+                        reshape_size=(64, 32),
+                        mode="nearest"
                     )
 
         # Save full generated samples

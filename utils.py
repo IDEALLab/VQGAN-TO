@@ -113,19 +113,19 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def mirror(data, dim=-1, reshape=None, difference=False):
+def mirror(data, dim=-1, reshape=None, difference=False, mode='bicubic'):
     while len(data.shape) < 4:
         data = data.unsqueeze(0)
     new = torch.cat((data, torch.flip(data, (dim,))), dim)
     if reshape is not None:
         if difference:
-            new = torch.clamp(F.interpolate(new, reshape, mode='bicubic'), -1, 1)
+            new = torch.clamp(F.interpolate(new, reshape, mode=mode), -1, 1)
         else:
-            new = torch.clamp(F.interpolate(new, reshape, mode='bicubic'), 0, 1)
+            new = F.interpolate(new, reshape, mode=mode)
     return new
 
 
-def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cmap=None, cbar=True, fontsize=20):
+def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cmap=None, cbar=True, fontsize=20, reshape_size=(400, 400), mode="bicubic"):
     L = len(titles)
     fig, axs = plt.subplots(1, L, figsize=(int(5*L), 4))
     [ax.axes.xaxis.set_visible(False) for ax in axs]
@@ -135,7 +135,7 @@ def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cma
 
     for idx, (figure, title, current_range) in enumerate(zip(data, titles, ranges)):
         if mirror_image:
-            figure = np.array(mirror(torch.tensor(figure), reshape=(400, 400), difference=(title=="Difference")))[0]
+            figure = np.array(mirror(torch.tensor(figure), reshape=reshape_size, difference=(title=="Difference"), mode=mode))[0]
         if title == "Difference":
             sns.heatmap(ax=axs[idx], data=figure[0], cbar=cbar, vmin=current_range[0], vmax=current_range[1], center=0, cmap="RdBu_r")
         else:
