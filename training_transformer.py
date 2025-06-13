@@ -85,8 +85,12 @@ class TrainTransformer:
                 self.optim.step()
                 train_losses.append(loss.item())
             
-            # Validation loss
             self.model.eval()
+
+            # Validation loss and per-token accuracy
+            total_token_correct = torch.zeros(256, device=args.device)
+            total_token_count = torch.zeros(256, device=args.device)
+
             with torch.no_grad():
                 for imgs, c in val_dataloader:
                     imgs = imgs.to(device=args.device, non_blocking=True)
@@ -94,7 +98,11 @@ class TrainTransformer:
                     logits, targets = self.model(imgs, c)
                     val_loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
                     val_losses.append(val_loss.item())
-            self.model.train()
+
+                    preds = torch.argmax(logits, dim=-1)  # [B, 256]
+                    correct = (preds == targets).float()  # [B, 256]
+                    total_token_correct += correct.sum(dim=0)
+                    total_token_count += torch.tensor([imgs.shape[0]], device=args.device)
 
             if args.track:
                 # Calculate average losses for this epoch
@@ -110,6 +118,18 @@ class TrainTransformer:
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
 
                 if epoch % args.sample_interval == 0:
+                    # Average accuracy per token position across val set
+                    mean_token_accuracy = (total_token_correct / total_token_count.clamp(min=1)).view(16, 16).cpu().numpy()
+                    avg_accuracy = mean_token_accuracy.mean()
+
+                    plt.figure(figsize=(4, 4))
+                    im = plt.imshow(mean_token_accuracy, cmap="viridis", vmin=0, vmax=1)
+                    plt.axis("off")
+                    plt.title(f"Mean Token Accuracy (Epoch {epoch}) — Avg: {avg_accuracy:.3f}", fontsize=12)
+                    plt.colorbar(im, fraction=0.046, pad=0.04)
+                    plt.savefig(os.path.join(self.results_dir, f"accuracy_{epoch}.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
+                    plt.close()
+
                     # Plot and save losses
                     plt.figure(figsize=(10, 5))
                     plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
@@ -125,9 +145,7 @@ class TrainTransformer:
                     plt.close()
                     
                     sample_imgs, sample_cond = next(iter(val_dataloader))
-                    self.model.eval()
                     sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=True)[1]
-                    self.model.train()
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save model if validation loss improved from the last interval
                     if val_loss_avg < best_val_loss:
@@ -137,6 +155,8 @@ class TrainTransformer:
                     elif args.early_stop:
                         print(f"Early stopping at epoch {epoch} due to no val loss improvement...")
                         break
+
+            self.model.train()
         
         torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer_final.pt"))
 

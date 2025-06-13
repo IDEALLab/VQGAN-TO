@@ -117,6 +117,8 @@ Tr_c11_dropout_pkeep:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sampl
 Tr_c6_dropout_pkeep:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.5
 Tr_c6_dropout_pkeep_2:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.1,pkeep=0.9
 Tr_c6_dropout_pkeep_3:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+Tr_c6_dropout_pkeep_3_repeat:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
 Tr_c6_dropout_pkeep_4:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
 Tr_c6_dropout_pkeep_5:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,t_learning_rate=6e-4
 Tr_c6_dropout_pkeep_6:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,n_layer=24,n_head=16,n_embd=1024
+Tr_c6_dropout_pkeep_7:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,n_layer=36,n_head=20,n_embd=1280
