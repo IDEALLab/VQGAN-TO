@@ -168,9 +168,10 @@ EOL
 #!/bin/bash
 #SBATCH --job-name=${JOB_NAME}
 #SBATCH --output=/home/adrake17/scratch/slurm-report/slurm_${JOB_TYPE}-%A_%a.out
-#SBATCH -t 12:00:00
+#SBATCH -t 08:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
+#SBATCH --exclusive
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
