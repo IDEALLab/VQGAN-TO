@@ -129,6 +129,7 @@ Tr_c6_dropout_pkeep_7:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sampl
 ###########################################################################
 ###########################################################################
 ###########################################################################
+nv_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
 nv_baseline:
 nv_latent_4:latent_dim=4
 nv_latent_4_ND:latent_dim=4,disc_start=999999
@@ -138,4 +139,3 @@ nv_net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 1
 nv_disc_none:disc_start=999999
 nv_codebook_64:num_codebook_vectors=64
 nv_codebook_32:num_codebook_vectors=32
-nv_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
