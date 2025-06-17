@@ -129,6 +129,7 @@ Tr_c6_dropout_pkeep_7:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sampl
 ###########################################################################
 ###########################################################################
 ###########################################################################
+nv_c11:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
 nv_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
 nv_baseline:
 nv_latent_4:latent_dim=4
@@ -137,5 +138,15 @@ nv_lr_med:learning_rate=2e-04
 nv_lr_med_ND:learning_rate=2e-04,disc_start=999999
 nv_net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256
 nv_disc_none:disc_start=999999
+nv_codebook_256:num_codebook_vectors=256
+nv_codebook_128:num_codebook_vectors=128
 nv_codebook_64:num_codebook_vectors=64
 nv_codebook_32:num_codebook_vectors=32
+
+nv_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10
+nv_cvq_large:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,c_fmap_dim=16
+
+nv_Tr_c11:is_t=true,model_name=nv_11,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+nv_Tr_c6:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+nv_Tr_c11_L:is_t=true,model_name=nv_11,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+nv_Tr_c6_L:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
