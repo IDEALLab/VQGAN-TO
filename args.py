@@ -37,7 +37,7 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.25)
     parser.add_argument('--image_channels', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--epochs', type=int, default=300)
+    parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--learning_rate', type=float, default=2.25e-05)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.9)

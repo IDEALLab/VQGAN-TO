@@ -199,7 +199,7 @@ class TrainVQGAN:
                     # Save sample images from the current epoch
                     if args.is_c:
                         scatter_fname = os.path.join(self.results_dir, f"scatter_epoch_{epoch}.png")
-                        plot_3d_scatter_comparison(decoded_images.cpu().detach().numpy(), imgs.cpu().detach().numpy(), scatter_fname)
+                        plot_3d_scatter_comparison(decoded_images, imgs, scatter_fname)
                     else:
                         combined = np.stack([decoded_images[-1].cpu().detach().numpy(), imgs[-1].cpu().detach().numpy()])
                         img_fname = os.path.join(self.results_dir, f"epoch_{epoch}.png")
