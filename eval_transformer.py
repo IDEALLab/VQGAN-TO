@@ -52,7 +52,7 @@ class EvalTransformer:
                 all_losses.append(loss.item())
 
                 # Generate full samples
-                logs, _ = self.model.log_images(imgs, cond, top_k=None, greedy=True)
+                logs, _ = self.model.log_images(imgs, cond, top_k=None, greedy=False)
                 full_sample = logs["full_sample"].clamp(0, 1).cpu().numpy()
                 recon = logs["rec"].clamp(0, 1).cpu().numpy()
                 original = imgs.cpu().numpy()
@@ -78,7 +78,7 @@ class EvalTransformer:
                     sos_tokens = sos_tokens.long().to(imgs.device)
 
                 start = indices[:, :0]  # empty token sequence
-                gen_indices = self.model.sample(start, sos_tokens, steps=indices.shape[1], top_k=None, greedy=True)
+                gen_indices = self.model.sample(start, sos_tokens, steps=indices.shape[1], top_k=None, greedy=False)
 
                 indices = indices.cpu().numpy().reshape(-1,1,16,16)
                 gen_indices = gen_indices.cpu().numpy().reshape(-1,1,16,16)

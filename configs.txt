@@ -145,8 +145,22 @@ nv_codebook_32:num_codebook_vectors=32
 
 nv_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10
 nv_cvq_large:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,c_fmap_dim=16
+nv_cvq_small:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,c_fmap_dim=2
 
 nv_Tr_c11:is_t=true,model_name=nv_c11,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
 nv_Tr_c6:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-nv_Tr_c11_L:is_t=true,model_name=nv_c11,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-nv_Tr_c6_L:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+# nv_Tr_c11_L:is_t=true,model_name=nv_c11,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+# nv_Tr_c6_L:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+
+# nv_Tr_c11_2:is_t=true,model_name=nv_c11,c_model_name=nv_cvq,epochs=1000,sample_interval=10
+# nv_Tr_c6_2:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10
+# nv_Tr_c11_L_2:is_t=true,model_name=nv_c11,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10
+# nv_Tr_c6_L_2:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10
+
+# nv_Tr_c11_3:is_t=true,model_name=nv_c11,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
+# nv_Tr_c6_3:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
+# nv_Tr_c11_L_3:is_t=true,model_name=nv_c11,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
+# nv_Tr_c6_L_3:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_large,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
+
+# nv_Tr_c11_S_3:is_t=true,model_name=nv_c11,c_model_name=nv_cvq_small,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
+# nv_Tr_c6_S:is_t=true,model_name=nv_c6,c_model_name=nv_cvq_small,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9

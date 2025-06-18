@@ -145,7 +145,7 @@ class TrainTransformer:
                     plt.close()
                     
                     sample_imgs, sample_cond = next(iter(val_dataloader))
-                    sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=True)[1]
+                    sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=False)[1]
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save model if validation loss improved from the last interval
                     if val_loss_avg < best_val_loss:

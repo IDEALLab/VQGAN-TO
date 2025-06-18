@@ -33,7 +33,7 @@ class VQGANTransformer(nn.Module):
 
         # Create config object for NanoGPT
         transformer_config = GPTConfig(
-            vocab_size=args.num_codebook_vectors,
+            vocab_size=vq_args.num_codebook_vectors,
             block_size=block_size,
             n_layer=args.n_layer,
             n_head=args.n_head,

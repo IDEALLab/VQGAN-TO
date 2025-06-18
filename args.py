@@ -11,15 +11,15 @@ def get_args():
 
     # Metadata
 
-    # parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
-    # parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
-    # parser.add_argument('--dropP_path', type=str, default='../data/dropP_4579.npy')
-    # parser.add_argument('--meanT_path', type=str, default='../data/meanT_4579.npy')
+    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
+    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
+    parser.add_argument('--dropP_path', type=str, default='../data/dropP_4579.npy')
+    parser.add_argument('--meanT_path', type=str, default='../data/meanT_4579.npy')
 
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_1506_half.npy')
-    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_1506.npy')
-    parser.add_argument('--dropP_path', type=str, default='../data/dropP_1506.npy')
-    parser.add_argument('--meanT_path', type=str, default='../data/meanT_1506.npy')
+    # parser.add_argument('--dataset_path', type=str, default='../data/gamma_1506_half.npy')
+    # parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_1506.npy')
+    # parser.add_argument('--dropP_path', type=str, default='../data/dropP_1506.npy')
+    # parser.add_argument('--meanT_path', type=str, default='../data/meanT_1506.npy')
 
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--algo', type=str, default='vqgan')
