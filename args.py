@@ -51,6 +51,10 @@ def get_args():
     parser.add_argument('--use_DAE', type=str2bool, default=False)
     parser.add_argument('--use_Online', type=str2bool, default=False)
 
+    parser.add_argument('--codebook_mod_init', type=str2bool, default=False)
+    parser.add_argument('--vq_min_validation', type=str2bool, default=True)
+    parser.add_argument('--vq_track_val_loss', type=str2bool, default=True)
+
     # VQGAN Stage 1 (Autoencoder): Encoder/Decoder
     parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512])
     parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16])

@@ -25,7 +25,7 @@ class TrainVQGAN:
         else:
             self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
-        self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': []}
+        self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': [], 'val_loss_avg': []}
         self.log_codebook_usage = {'epochs': [], 'active_vectors': [], 'usage_percentage': [], 'entropy': []}
 
         saves_dir = os.path.join(r"../saves", args.run_name)
@@ -61,12 +61,14 @@ class TrainVQGAN:
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
     def train(self, args):
-        (dataloader, _, _), means, stds = get_data(args)
-        steps_per_epoch = len(dataloader)
+        (dataloader, val_dataloader, _), means, stds = get_data(args, use_val_split=True)
+        best_val_loss = float('inf')
+        val_loss_avg = float('inf')
         
         for epoch in tqdm(range(args.epochs)):
             epoch_d_losses = []
             epoch_g_losses = []
+            val_losses = []
             epoch_codebook_usage = {}  # Reset codebook usage tracking for each epoch
             
             for i, (imgs, _) in enumerate(dataloader):
@@ -113,8 +115,29 @@ class TrainVQGAN:
                         else:
                             epoch_codebook_usage[idx] = count
 
+            if args.vq_track_val_loss:
+
+                self.vqgan.eval()
+                self.discriminator.eval()
+
+                with torch.no_grad():
+                    for i, (imgs, _) in enumerate(val_dataloader):
+                        imgs = imgs.to(device=args.device, non_blocking=True)
+                        decoded_images, codebook_indices, q_loss = self.vqgan(imgs)
+                        perceptual_loss = self.perceptual_loss(imgs, decoded_images)
+                        rec_loss = torch.abs(imgs - decoded_images)
+                        perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
+                        perceptual_rec_loss = perceptual_rec_loss.mean()
+                        vq_val_loss = perceptual_rec_loss + q_loss
+                        val_losses.append(vq_val_loss.item())
+                
+                self.vqgan.train()
+                self.discriminator.train()
+
             if args.track:
                 # Calculate and log metrics every epoch
+                if args.vq_track_val_loss:
+                    val_loss_avg = sum(val_losses) / len(val_losses)
                 d_loss_avg = sum(epoch_d_losses) / len(epoch_d_losses)
                 g_loss_avg = sum(epoch_g_losses) / len(epoch_g_losses)
                 
@@ -129,11 +152,15 @@ class TrainVQGAN:
                 max_entropy = np.log(args.num_codebook_vectors)
                 normalized_entropy = entropy / max_entropy
                 
+                if args.vq_track_val_loss:
+                    self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
+                else:
+                    self.log_losses['val_loss_avg'].append(None)
                 if epoch >= args.disc_start:
                     self.log_losses['d_loss_avg'].append(np.log(d_loss_avg + 1e-8))
                 else:
                     self.log_losses['d_loss_avg'].append(None)
-                self.log_losses['g_loss_avg'].append(np.log(g_loss_avg))
+                self.log_losses['g_loss_avg'].append(np.log(g_loss_avg + 1e-8))
                 self.log_losses['epochs'].append(epoch)
                 
                 self.log_codebook_usage['active_vectors'].append(active_codes)
@@ -150,6 +177,11 @@ class TrainVQGAN:
                         valid_d_epochs = [e for e, d in zip(self.log_losses['epochs'], self.log_losses['d_loss_avg']) if d is not None]
                         valid_d_vals = [d for d in self.log_losses['d_loss_avg'] if d is not None]
                         plt.plot(valid_d_epochs, valid_d_vals, label='D. Log-Loss')
+                    if args.vq_track_val_loss:
+                        # Only plot val_loss_avg if early stopping is enabled
+                        valid_val_epochs = [e for e, v in zip(self.log_losses['epochs'], self.log_losses['val_loss_avg']) if v is not None]
+                        valid_val_vals = [v for v in self.log_losses['val_loss_avg'] if v is not None]
+                        plt.plot(valid_val_epochs, valid_val_vals, label='Val. Log-Loss')
 
                     plt.plot(self.log_losses['epochs'], self.log_losses['g_loss_avg'], label='G. Log-Loss')
                     plt.xlabel('Epochs')
@@ -204,19 +236,19 @@ class TrainVQGAN:
                         combined = np.stack([decoded_images[-1].cpu().detach().numpy(), imgs[-1].cpu().detach().numpy()])
                         img_fname = os.path.join(self.results_dir, f"epoch_{epoch}.png")
                         plot_data(
-                            combined, 
-                            titles = ['Reconstruction', 'Real'], 
-                            ranges = [[0, 1], [0, 1]], 
+                            combined,
+                            titles = ['Reconstruction', 'Real'],
+                            ranges = [[0, 1], [0, 1]],
                             fname = img_fname,
-                            cbar = False, 
-                            dpi = 400, 
-                            mirror_image = True, 
-                            cmap = sns.color_palette("viridis", as_cmap=True), 
+                            cbar = False,
+                            dpi = 400,
+                            mirror_image = True,
+                            cmap = sns.color_palette("viridis", as_cmap=True),
                             fontsize = 20
                         )
 
                     # Save the latest model state
-                    if args.save_model:
+                    if args.save_model and (not args.vq_min_validation or (args.vq_min_validation and val_loss_avg < best_val_loss)):
                         ckpt_gen = {
                             "epoch": epoch,
                             "generator": self.vqgan.state_dict(),
@@ -232,6 +264,10 @@ class TrainVQGAN:
 
                         torch.save(ckpt_gen, os.path.join(self.checkpoints_dir, "vqgan.pth"))
                         torch.save(ckpt_disc, os.path.join(self.checkpoints_dir, "disc.pth"))
+
+                        if val_loss_avg < best_val_loss and args.vq_min_validation:
+                            best_val_loss = val_loss_avg
+                            tqdm.write(f"VQGAN checkpoint saved at epoch {epoch} with validation loss {val_loss_avg:.4f}.")
 
 if __name__ == '__main__':
     args = get_args()

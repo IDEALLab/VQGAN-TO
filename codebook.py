@@ -10,8 +10,13 @@ class Codebook(nn.Module):
         self.beta = args.beta
 
         self.embedding = nn.Embedding(self.num_codebook_vectors, self.latent_dim)
-        self.embedding.weight.data.uniform_(-1.0 / self.num_codebook_vectors, 1.0 / self.num_codebook_vectors)
-
+        if args.codebook_mod_init:
+            half = self.num_codebook_vectors // 2
+            low = torch.empty(half, self.latent_dim).uniform_(0.0, 0.2)
+            high = torch.empty(self.num_codebook_vectors - half, self.latent_dim).uniform_(0.8, 1.0)
+            self.embedding.weight.data = torch.cat([low, high], dim=0)
+        else:
+            self.embedding.weight.data.uniform_(-1.0 / self.num_codebook_vectors, 1.0 / self.num_codebook_vectors)
     def forward(self, z):
         z = z.permute(0, 2, 3, 1).contiguous()
         z_flattened = z.view(-1, self.latent_dim)
