@@ -79,6 +79,8 @@ def get_args():
     parser.add_argument('--dropout', type=float, default=0.0)       # 0.3
     parser.add_argument('--bias', type=str2bool, default=True)      # True
 
+    parser.add_argument('--train_samples', type=int, default=999999)
+
     # 'gpt2':         dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
     # 'gpt2-medium':  dict(n_layer=24, n_head=16, n_embd=1024), # 350M params
     # 'gpt2-large':   dict(n_layer=36, n_head=20, n_embd=1280), # 774M params

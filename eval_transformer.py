@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 import seaborn as sns
+from scipy.ndimage import label
 
 from transformer import VQGANTransformer
 from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict
@@ -37,6 +38,7 @@ class EvalTransformer:
         all_volume_mae = []
         all_gen_vfs = []
         all_real_vfs = []
+        component_counts = []  # Store segment counts across all test samples
 
         vf_mean = means[2]
         vf_std = stds[2]
@@ -62,30 +64,35 @@ class EvalTransformer:
                 # Compute VFs and MAE
                 gen_vfs = full_sample.reshape(full_sample.shape[0], -1).mean(axis=1)
                 ref_vfs_normalized = cond[:, 2].cpu().numpy()
-                ref_vfs = ref_vfs_normalized * vf_std + vf_mean  # un-normalize
+                ref_vfs = ref_vfs_normalized * vf_std + vf_mean
 
                 mae = np.abs(gen_vfs - ref_vfs)
                 all_volume_mae.extend(mae)
                 all_gen_vfs.extend(gen_vfs)
                 all_real_vfs.extend(ref_vfs)
 
+                # Count disconnected fluid segments
+                binary_samples = (full_sample > 0.5).astype(np.uint8)
+                for b in range(binary_samples.shape[0]):
+                    structure = np.array([[0,1,0],[1,1,1],[0,1,0]], dtype=np.uint8)
+                    labeled, num_components = label(binary_samples[b, 0], structure=structure)
+                    component_counts.append(num_components)
+
                 # Get quantized and predicted indices
-                _, indices = self.model.encode_to_z(imgs)  # [B, 256]
+                _, indices = self.model.encode_to_z(imgs)
                 if self.model.t_is_c:
                     _, sos_tokens = self.model.encode_to_z(cond, is_c=True)
                 else:
                     sos_tokens = torch.ones(imgs.shape[0], 1) * self.model.sos_token
                     sos_tokens = sos_tokens.long().to(imgs.device)
 
-                start = indices[:, :0]  # empty token sequence
+                start = indices[:, :0]
                 gen_indices = self.model.sample(start, sos_tokens, steps=indices.shape[1], top_k=None, greedy=False)
 
                 indices = indices.cpu().numpy().reshape(-1,1,16,16)
                 gen_indices = gen_indices.cpu().numpy().reshape(-1,1,16,16)
 
-                # Plot side-by-side images with indices
                 for j in range(len(imgs)):
-                    # Convert main images
                     combined = np.stack([original[j], recon[j], full_sample[j]])
                     fname = os.path.join(self.results_dir, f"sample_{i*args.batch_size + j}.png")
                     plot_data(
@@ -123,17 +130,20 @@ class EvalTransformer:
         np.save(os.path.join(self.eval_dir, "vfs_real.npy"), np.array(all_real_vfs))
         np.save(os.path.join(self.eval_dir, "vfs_mae.npy"), np.array(all_volume_mae))
 
-        # Summary metric
+        # Summary metrics
         log_avg_loss = np.log(np.mean(all_losses) + 1e-8)
         vf_mae = np.mean(all_volume_mae)
+        avg_components = np.mean(component_counts)
 
         print(f"\nTransformer Evaluation:")
         print(f"  Log of Average CE Loss: {log_avg_loss:.6f}")
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
+        print(f"  Avg # Disconnected Fluid Segments: {avg_components:.2f}")
 
         metrics = {
             "log_avg_loss": log_avg_loss,
             "volume_fraction_mae": vf_mae,
+            "avg_disconnected_fluid_segments": avg_components
         }
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 

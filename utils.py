@@ -70,6 +70,10 @@ def get_data(args, use_val_split=False):
         val_len = int(0.15 * total)
         test_len = total - train_len - val_len
         train_data, val_data, test_data = random_split(dataset, [train_len, val_len, test_len], generator=generator)
+
+        if args.is_t and args.train_samples < train_len:
+            train_data = torch.utils.data.Subset(train_data, list(range(train_len - args.train_samples, train_len)))
+
         return load_data(args, train_data, val_data, test_data, generator), means, stds
     else:
         train_data, test_data = random_split(dataset, [int(0.75 * len(dataset)), len(dataset) - int(0.75 * len(dataset))], generator=generator)
