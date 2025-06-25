@@ -55,6 +55,8 @@ def get_args():
     parser.add_argument('--vq_min_validation', type=str2bool, default=True)
     parser.add_argument('--vq_track_val_loss', type=str2bool, default=True)
 
+    parser.add_argument('--no_vq', type=str2bool, default=False)
+
     # VQGAN Stage 1 (Autoencoder): Encoder/Decoder
     parser.add_argument('--encoder_channels', type=int, nargs='+', default=[128, 128, 128, 256, 256, 512])
     parser.add_argument('--encoder_attn_resolutions', type=int, nargs='+', default=[16])

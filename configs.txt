@@ -173,3 +173,8 @@ Tr_S_500:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_inter
 Tr_S_250:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=250
 
 nv_c12:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=5,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
+nv_c13:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
+nv_c14:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
+
+nv_c13_cont:no_vq=true,vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
+nv_c13_cont_ND:no_vq=true,vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
