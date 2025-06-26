@@ -17,6 +17,8 @@ class VQGANTransformer(nn.Module):
         temp_vq_args.is_t = False
         vq_args = load_args(temp_vq_args)
         self.vqgan = load_vqgan(vq_args).eval()
+        for param in self.vqgan.parameters():
+            param.requires_grad = False
 
         if args.t_is_c:
             # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
@@ -25,6 +27,8 @@ class VQGANTransformer(nn.Module):
             temp_cvq_args.is_t = False
             cvq_args = load_args(temp_cvq_args)
             self.cvqgan = load_vqgan(cvq_args).eval()
+            for param in self.cvqgan.parameters():
+                param.requires_grad = False
 
         # block_size is automatically set to the combined sequence length of the VQGAN and CVQGAN
         block_size = (vq_args.image_size // (2 ** (len(vq_args.decoder_channels) - 1))) ** 2

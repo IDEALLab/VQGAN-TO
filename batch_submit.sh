@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to submit multiple VQGAN/CVQGAN/Transformer training jobs with different configurations
+# Script to submit multiple VQGAN/CVQGAN/Transformer/WGAN-GP training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
 
 function print_usage() {
@@ -70,6 +70,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
     IS_TRANSFORMER=false
     IS_CONDITIONAL_VQGAN=false
+    IS_GAN=false
 
     IFS=',' read -ra PARAM_PAIRS <<< "$PARAMS"
     for pair in "${PARAM_PAIRS[@]}"; do
@@ -80,10 +81,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
             IS_TRANSFORMER=true
         elif [[ "$KEY" == "is_c" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
             IS_CONDITIONAL_VQGAN=true
+        elif [[ "$KEY" == "is_gan" && ("$lower_value" == "true" || "$lower_value" == "1") ]]; then
+            IS_GAN=true
         fi
     done
 
-    if [ "$IS_TRANSFORMER" = true ]; then
+    if [ "$IS_GAN" = true ]; then
+        PYTHON_SCRIPT="training_wgangp.py"
+        JOB_TYPE="wgangp"
+    elif [ "$IS_TRANSFORMER" = true ]; then
         PYTHON_SCRIPT="training_transformer.py"
         JOB_TYPE="transformer"
     else
@@ -117,9 +123,16 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
         if [ -f "$SAVE_DIR/training_status.txt" ] && grep -q "Training completed successfully" "$SAVE_DIR/training_status.txt"; then
             if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
-                EVAL_PY_SCRIPT="eval_vqgan.py"
-                EVAL_ARG="--model_name \$runname"
-                [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname --is_t True"
+                if [ "$IS_GAN" = true ]; then
+                    EVAL_PY_SCRIPT="eval_wgangp.py"
+                    EVAL_ARG="--run_name \$runname"
+                elif [ "$IS_TRANSFORMER" = true ]; then
+                    EVAL_PY_SCRIPT="eval_transformer.py"
+                    EVAL_ARG="--t_name \$runname --is_t True"
+                else
+                    EVAL_PY_SCRIPT="eval_vqgan.py"
+                    EVAL_ARG="--model_name \$runname"
+                fi
 
                 cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
@@ -202,15 +215,20 @@ fi
 EOL
     chmod +x "$JOB_SCRIPT"
 
-    # Submit training job and capture job ID
     echo "Submitting training job: sbatch $JOB_SCRIPT"
     TRAIN_JOB_ID=$(sbatch "$JOB_SCRIPT" | awk '{print $4}')
     echo "Training job submitted with ID $TRAIN_JOB_ID"
 
-    # Prepare evaluation script
-    EVAL_PY_SCRIPT="eval_vqgan.py"
-    EVAL_ARG="--model_name \$runname"
-    [ "$IS_TRANSFORMER" = true ] && EVAL_PY_SCRIPT="eval_transformer.py" && EVAL_ARG="--t_name \$runname --is_t True"
+    if [ "$IS_GAN" = true ]; then
+        EVAL_PY_SCRIPT="eval_wgangp.py"
+        EVAL_ARG="--run_name \$runname"
+    elif [ "$IS_TRANSFORMER" = true ]; then
+        EVAL_PY_SCRIPT="eval_transformer.py"
+        EVAL_ARG="--t_name \$runname --is_t True"
+    else
+        EVAL_PY_SCRIPT="eval_vqgan.py"
+        EVAL_ARG="--model_name \$runname"
+    fi
 
     cat > "$EVAL_SCRIPT" << EOL
 #!/bin/bash
@@ -245,10 +263,9 @@ echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
 
     chmod +x "$EVAL_SCRIPT"
-
-    # Submit evaluation job with dependency on training job success
     echo "Submitting evaluation job with dependency on job $TRAIN_JOB_ID"
     sbatch --dependency=afterok:$TRAIN_JOB_ID "$EVAL_SCRIPT"
+
 done < "$CONFIG_FILE"
 
 echo "All jobs submitted. Scripts in: $TEMP_DIR"
