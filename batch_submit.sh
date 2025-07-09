@@ -144,7 +144,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:a100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc
@@ -188,7 +188,7 @@ EOL
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:a100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc
@@ -240,7 +240,7 @@ EOL
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:a100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc

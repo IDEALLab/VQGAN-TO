@@ -204,3 +204,5 @@ A_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=999999,epochs=10
 A_Tr_c4:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
 A_Tr_c4_2:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=200,sample_interval=10,dropout=0.3,pkeep=0.9,T_min_validation=false
 A_Tr_c4_3:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false
+A_Tr_c4_4:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
+A_Tr_c4_5:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,t_learning_rate=4.5e-7

@@ -7,7 +7,7 @@ import seaborn as sns
 from scipy.ndimage import label
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict
+from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv
 from args import get_args, load_args, print_args
 
 
@@ -34,15 +34,29 @@ class EvalTransformer:
 
     def evaluate(self, args):
         (dataloader, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
+
         all_losses = []
-        all_generated = []
         all_volume_mae = []
         all_gen_vfs = []
         all_real_vfs = []
-        component_counts = []  # Store segment counts across all test samples
 
+        solid_counts = []
+        fluid_counts = []
+        solid_counts_real = []
+        
         vf_mean = means[2]
         vf_std = stds[2]
+
+        all_generated = []
+        all_real_eval = []
+        all_real_train = []
+
+        print("Loading training data for evaluation...")
+        with torch.no_grad():
+            for i, (imgs, cond) in enumerate(dataloader):
+                imgs = imgs.to(args.device, non_blocking=True).cpu().numpy()
+                all_real_train.append(imgs)
+        print("Completed loading training data for evaluation.")
 
         with torch.no_grad():
             for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Evaluating Transformer")):
@@ -61,6 +75,7 @@ class EvalTransformer:
                 original = imgs.cpu().numpy()
 
                 all_generated.append(full_sample)
+                all_real_eval.append(original)
 
                 # Compute VFs and MAE
                 gen_vfs = full_sample.reshape(full_sample.shape[0], -1).mean(axis=1)
@@ -74,10 +89,16 @@ class EvalTransformer:
 
                 # Count disconnected fluid segments
                 binary_samples = (full_sample > 0.5).astype(np.uint8)
+                binary_samples_real = (original > 0.5).astype(np.uint8)
                 for b in range(binary_samples.shape[0]):
                     structure = np.array([[0,1,0],[1,1,1],[0,1,0]], dtype=np.uint8)
-                    labeled, num_components = label(binary_samples[b, 0], structure=structure)
-                    component_counts.append(num_components)
+                    _, num_fluid = label(binary_samples[b, 0], structure=structure)
+                    _, num_solid = label(1 - binary_samples[b, 0], structure=structure)
+                    fluid_counts.append(num_fluid)
+                    solid_counts.append(num_solid)
+                for b in range(binary_samples_real.shape[0]):
+                    _, num_solid_real = label(1 - binary_samples_real[b, 0], structure=structure)
+                    solid_counts_real.append(num_solid_real)
 
                 # Get quantized and predicted indices
                 _, indices = self.model.encode_to_z(imgs)
@@ -126,25 +147,42 @@ class EvalTransformer:
 
         # Save full generated samples
         all_generated = np.concatenate(all_generated, axis=0)
-        np.save(os.path.join(self.eval_dir, "generated.npy"), all_generated)
+        all_real_eval = np.concatenate(all_real_eval, axis=0)
+        all_real_train = np.concatenate(all_real_train, axis=0)
+        solid_counts = np.array(solid_counts)
+        solid_counts_real = np.array(solid_counts_real)
+
+        # np.save(os.path.join(self.eval_dir, "generated.npy"), all_generated)
         np.save(os.path.join(self.eval_dir, "vfs_gen"), np.array(all_gen_vfs))
         np.save(os.path.join(self.eval_dir, "vfs_real.npy"), np.array(all_real_vfs))
         np.save(os.path.join(self.eval_dir, "vfs_mae.npy"), np.array(all_volume_mae))
 
         # Summary metrics
+        print("Calculating MMD")
+        mmd = MMD(all_generated, all_real_eval)
+        print("Calculating R-Div")
+        r_div = rdiv(all_real_train, all_generated)
+        print("Calculating remainder of metrics.")
         log_avg_loss = np.log(np.mean(all_losses) + 1e-8)
         vf_mae = np.mean(all_volume_mae)
-        avg_disconnected = np.mean(component_counts) - 1
+        avg_disconnected = np.mean(fluid_counts) - 1
+        sse = np.mean(np.abs(solid_counts - solid_counts_real) / solid_counts_real)
 
         print(f"\nTransformer Evaluation:")
         print(f"  Log of Average CE Loss: {log_avg_loss:.6f}")
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
-        print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.2f}")
+        print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.6f}")
+        print(f"  MMD:                     {mmd:.6f}")
+        print(f"  R-Div:                   {r_div:.6f}")
+        print(f"  SSE:                     {sse:.6f}")
 
         metrics = {
             "log_avg_loss": log_avg_loss,
             "volume_fraction_mae": vf_mae,
-            "avg_disconnected_fluid_segments": avg_disconnected
+            "avg_disconnected_fluid_segments": avg_disconnected,
+            "mmd": mmd,
+            "r_div": r_div,
+            "sse": sse
         }
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 
