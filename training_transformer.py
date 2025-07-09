@@ -148,10 +148,10 @@ class TrainTransformer:
                     sampled_imgs = self.model.log_images(sample_imgs[0][None].to(args.device), sample_cond[0][None].to(args.device), top_k=None, greedy=False)[1]
                     vutils.save_image(sampled_imgs, os.path.join(self.results_dir, f"epoch_{epoch}.png"), nrow=4)
                     # Save model if validation loss improved from the last interval
-                    if val_loss_avg < best_val_loss:
-                        best_val_loss = val_loss_avg
-                        tqdm.write("Transformer checkpoint saved at epoch {}.".format(epoch))
-                        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer.pt"))
+                    if val_loss_avg < best_val_loss or not args.T_min_validation:
+                        best_val_loss = min(best_val_loss, val_loss_avg)
+                        tqdm.write(f"Transformer checkpoint saved at epoch {epoch}.")
+                        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, "transformer.pt"))
                     elif args.early_stop:
                         print(f"Early stopping at epoch {epoch} due to no val loss improvement...")
                         break

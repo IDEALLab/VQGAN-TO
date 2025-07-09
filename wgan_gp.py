@@ -112,4 +112,4 @@ class VQGANLatentWrapper(nn.Module):
 # parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 # parser.add_argument("--n_critic", type=int, default=5, help="number of training steps for discriminator per iter")
 # parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
-# parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
+# parser.add_argument("--gan_sample_interval", type=int, default=400, help="interval betwen image samples")

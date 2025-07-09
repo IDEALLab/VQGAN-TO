@@ -81,7 +81,7 @@ class TrainWGAN_GP:
                     self.optimizer_G.step()
                     train_g_losses.append(g_loss.item())
 
-                    if batches_done % self.args.sample_interval == 0:
+                    if batches_done % self.args.gan_sample_interval == 0:
                         save_image(fake_imgs.data[:25], os.path.join(self.results_dir, f"epoch_{epoch}_samples.png"), nrow=5, normalize=True)
 
                     batches_done += self.args.n_critic
@@ -119,7 +119,7 @@ class TrainWGAN_GP:
 
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
 
-                if epoch % self.args.sample_interval == 0:
+                if epoch % self.args.gan_sample_interval == 0:
                     plt.figure(figsize=(10, 5))
                     plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
                     plt.plot(self.log_losses['epochs'], self.log_losses['val_loss_avg'], label='Val Log-Loss')

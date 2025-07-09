@@ -11,15 +11,14 @@ def get_args():
 
     # Metadata
 
-    parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
-    parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
-    parser.add_argument('--dropP_path', type=str, default='../data/dropP_4579.npy')
-    parser.add_argument('--meanT_path', type=str, default='../data/meanT_4579.npy')
+    parser.add_argument('--dataset_path', type=str, default='../data/new/nonv/gamma_5666_half.npy')
+    parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy')
+
+    # parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
+    # parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
 
     # parser.add_argument('--dataset_path', type=str, default='../data/gamma_1506_half.npy')
     # parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_1506.npy')
-    # parser.add_argument('--dropP_path', type=str, default='../data/dropP_1506.npy')
-    # parser.add_argument('--meanT_path', type=str, default='../data/meanT_1506.npy')
 
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--algo', type=str, default='vqgan')
@@ -37,7 +36,7 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.25)
     parser.add_argument('--image_channels', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--epochs', type=int, default=200)
+    parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=2.25e-05)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.9)
@@ -52,9 +51,10 @@ def get_args():
     parser.add_argument('--use_Online', type=str2bool, default=False)
 
     parser.add_argument('--codebook_mod_init', type=str2bool, default=False)
-    parser.add_argument('--vq_min_validation', type=str2bool, default=True)
+    parser.add_argument('--vq_min_validation', type=str2bool, default=False)
     parser.add_argument('--vq_track_val_loss', type=str2bool, default=True)
 
+    # Continuous AE
     parser.add_argument('--no_vq', type=str2bool, default=False)
 
     # VQGAN Stage 1 (Autoencoder): Encoder/Decoder
@@ -85,6 +85,7 @@ def get_args():
     parser.add_argument('--dropout', type=float, default=0.0)       # 0.3
     parser.add_argument('--bias', type=str2bool, default=True)      # True
 
+    parser.add_argument('--T_min_validation', type=str2bool, default=True)
     parser.add_argument('--train_samples', type=int, default=999999)
 
     # 'gpt2':         dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
@@ -105,10 +106,10 @@ def get_args():
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--n_critic", type=int, default=5, help="number of training steps for discriminator per iter")
     parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
-    parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
     parser.add_argument('--gan_min_validation', type=str2bool, default=True)
     parser.add_argument("--lambda_gp", type=float, default=10.0)
     parser.add_argument('--gan_name', type=str, default="wgan_gp_baseline")
+    parser.add_argument("--gan_sample_interval", type=int, default=400, help="interval betwen image samples")
 
     args, _ = parser.parse_known_args()
 

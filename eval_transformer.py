@@ -11,6 +11,7 @@ from utils import get_data, set_precision, set_all_seeds, plot_data, process_sta
 from args import get_args, load_args, print_args
 
 
+# TODO: MMD, R-Div, SSE
 class EvalTransformer:
     def __init__(self, args):
         set_precision()
@@ -32,7 +33,7 @@ class EvalTransformer:
         self.evaluate(args)
 
     def evaluate(self, args):
-        (_, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
+        (dataloader, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
         all_losses = []
         all_generated = []
         all_volume_mae = []
@@ -133,17 +134,17 @@ class EvalTransformer:
         # Summary metrics
         log_avg_loss = np.log(np.mean(all_losses) + 1e-8)
         vf_mae = np.mean(all_volume_mae)
-        avg_components = np.mean(component_counts)
+        avg_disconnected = np.mean(component_counts) - 1
 
         print(f"\nTransformer Evaluation:")
         print(f"  Log of Average CE Loss: {log_avg_loss:.6f}")
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
-        print(f"  Avg # Disconnected Fluid Segments: {avg_components:.2f}")
+        print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.2f}")
 
         metrics = {
             "log_avg_loss": log_avg_loss,
             "volume_fraction_mae": vf_mae,
-            "avg_disconnected_fluid_segments": avg_components
+            "avg_disconnected_fluid_segments": avg_disconnected
         }
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 
