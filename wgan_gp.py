@@ -90,16 +90,14 @@ class VQGANLatentWrapper(nn.Module):
             param.requires_grad = False
 
     @torch.no_grad()
-    def encode(self, x, is_c=False):
-        # Conditional case
-        if is_c:
-            quant_z, _, _ = self.cvqgan.encode(x)
-        else:
-            quant_z, _, _ = self.vqgan.encode(x)
+    def encode(self, x):
+        quant_z = self.vqgan.encoder(x)
         return quant_z
 
     @torch.no_grad()
-    def decode(self, z):
+    def decode(self, E):
+        q = self.vqgan.quant_conv(E)
+        z, _, _ = self.vqgan.codebook(q)
         return self.vqgan.decode(z)
 
 

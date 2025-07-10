@@ -34,6 +34,23 @@ class EvalTransformer:
 
     def evaluate(self, args):
         (dataloader, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
+        
+        # from torch.utils.data import Subset, DataLoader
+        # dataloader = DataLoader(
+        #     Subset(dataloader.dataset, range(16)),
+        #     batch_size=dataloader.batch_size,
+        #     shuffle=False,
+        #     num_workers=dataloader.num_workers,
+        #     pin_memory=getattr(dataloader, "pin_memory", False)
+        # )
+
+        # test_dataloader = DataLoader(
+        #     Subset(test_dataloader.dataset, range(16)),
+        #     batch_size=test_dataloader.batch_size,
+        #     shuffle=False,
+        #     num_workers=test_dataloader.num_workers,
+        #     pin_memory=getattr(test_dataloader, "pin_memory", False)
+        # )
 
         all_losses = []
         all_volume_mae = []

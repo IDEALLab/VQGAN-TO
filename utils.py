@@ -266,20 +266,28 @@ def KPS(pareto):
 
 # MMD
 # Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
-def gaussian_kernel(X, Y, sigma=2.0):
+def gaussian_kernel(X, Y, sigma):
     beta = 1. / (2. * sigma**2)
-    dist = pairwise_distances(X, Y)
-    s = beta * dist.flatten()
-    return np.exp(-s)
+    dists = pairwise_distances(X, Y)  # shape (n_x, n_y)
+    return np.exp(-beta * dists**2)
+
+def median_heuristic_sigma(X, Y):
+    Z = np.concatenate([X, Y], axis=0)
+    dists = pairwise_distances(Z, Z)
+    median = np.median(dists)
+    return median / np.sqrt(2)
 
 def MMD(X_gen, X_test):
     X_gen = X_gen.reshape((X_gen.shape[0], -1))
     X_test = X_test.reshape((X_test.shape[0], -1))
-      
-    mmd = np.mean(gaussian_kernel(X_gen, X_gen)) - \
-            2 * np.mean(gaussian_kernel(X_gen, X_test)) + \
-            np.mean(gaussian_kernel(X_test, X_test))
-            
+    
+    sigma = median_heuristic_sigma(X_test, X_test) # Always the same for the sake of comparison
+    print("For MMD, using sigma:", sigma)
+
+    mmd = np.mean(gaussian_kernel(X_gen, X_gen, sigma)) - \
+          2 * np.mean(gaussian_kernel(X_gen, X_test, sigma)) + \
+          np.mean(gaussian_kernel(X_test, X_test, sigma))
+          
     return np.sqrt(mmd)
 
 # Topological distance: absolute value of difference between Betti numbers for summary statistic loss
@@ -350,32 +358,20 @@ def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, redu
 
 # R-Div
 # Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
-def variance(X):
-    cov = np.cov(X.T)
-    var = np.trace(cov)/cov.shape[0]
-#    var = np.mean(np.var(X, axis=0))
-#    var = np.linalg.det(cov)
-#    var = var**(1./cov.shape[0])
-    return var
-
 def rdiv(X_train, X_gen):
-    ''' Relative div '''
-    X_train = np.squeeze(X_train)
-#    train_div = np.sum(np.var(X_train, axis=0))
-#    gen_div = np.sum(np.var(X_gen, axis=0))
+    """Full pairwise distances without sampling"""
     X_train = X_train.reshape((X_train.shape[0], -1))
-    train_div = variance(X_train)
     X_gen = X_gen.reshape((X_gen.shape[0], -1))
-    gen_div = variance(X_gen)
-#    n = 100
-#    gen_div = train_div = 0
-#    for i in range(n):
-#        a, b = np.random.choice(X_gen.shape[0], 2, replace=False)
-#        gen_div += np.linalg.norm(X_gen[a] - X_gen[b])
-#        c, d = np.random.choice(X_train.shape[0], 2, replace=False)
-#        train_div += np.linalg.norm(X_train[c] - X_train[d])
-    rdiv = gen_div/train_div
-    return rdiv
+    
+    # Compute all pairwise distances
+    train_dists = pairwise_distances(X_train, X_train)
+    gen_dists = pairwise_distances(X_gen, X_gen)
+    
+    # Get upper triangular part (exclude diagonal and duplicates)
+    train_div = np.mean(train_dists[np.triu_indices_from(train_dists, k=1)])
+    gen_div = np.mean(gen_dists[np.triu_indices_from(gen_dists, k=1)])
+    
+    return gen_div / train_div
 
 # Volume Fraction Loss. N specifies how many equal-sized quadrants to split the data into (default 1 i.e. no splitting)
 def vf_loss(input, target, N=1, d=1):
