@@ -108,7 +108,7 @@ def get_args():
     parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
     parser.add_argument('--gan_min_validation', type=str2bool, default=False)
     parser.add_argument("--lambda_gp", type=float, default=10.0)
-    parser.add_argument("--gan_sample_interval", type=int, default=400, help="interval betwen image samples")
+    parser.add_argument("--gan_sample_interval", type=int, default=10, help="interval betwen image samples")
     parser.add_argument('--gan_name', type=str, default="wgan_baseline")
 
     args, _ = parser.parse_known_args()

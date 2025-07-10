@@ -46,7 +46,6 @@ class TrainWGAN_GP:
     def train(self):
         (dataloader, val_dataloader, _), _, _ = get_data(self.args, use_val_split=True)
         best_val_loss = float('inf')
-        batches_done = 0
 
         for epoch in tqdm(range(self.args.epochs)):
             train_d_losses, train_g_losses = [], []
@@ -81,11 +80,9 @@ class TrainWGAN_GP:
                     self.optimizer_G.step()
                     train_g_losses.append(g_loss.item())
 
-                    if batches_done % self.args.gan_sample_interval == 0:
+                    if epoch % self.args.gan_sample_interval == 0:
                         fake_samples = self.vq_wrapper.decode(fake_imgs.data[:4]).clamp(0, 1)
                         save_image(fake_samples, os.path.join(self.results_dir, f"epoch_{epoch}_samples.png"), nrow=2, normalize=True)
-
-                    batches_done += self.args.n_critic
 
             self.generator.eval()
             self.discriminator.eval()
