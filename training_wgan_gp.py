@@ -30,8 +30,8 @@ class TrainWGAN_GP:
             self.discriminator.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2)
         )
 
-        # Setup directories using gan_name
-        saves_dir = os.path.join("../saves", args.gan_name)
+        # Setup directories using run_name
+        saves_dir = os.path.join("../saves", args.run_name)
         self.results_dir = os.path.join(saves_dir, "results")
         self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
         self.saves_dir = saves_dir
@@ -40,7 +40,7 @@ class TrainWGAN_GP:
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
-        self.log_losses = {'epochs': [], 'train_loss_avg': [], 'val_loss_avg': []}
+        self.losses = {'epochs': [], 'train_loss_avg': [], 'val_loss_avg': []}
         self.train()
 
     def train(self):
@@ -82,29 +82,39 @@ class TrainWGAN_GP:
                     train_g_losses.append(g_loss.item())
 
                     if batches_done % self.args.gan_sample_interval == 0:
-                        save_image(fake_imgs.data[:25], os.path.join(self.results_dir, f"epoch_{epoch}_samples.png"), nrow=5, normalize=True)
+                        fake_samples = self.vq_wrapper.decode(fake_imgs.data[:4]).clamp(0, 1)
+                        save_image(fake_samples, os.path.join(self.results_dir, f"epoch_{epoch}_samples.png"), nrow=2, normalize=True)
 
                     batches_done += self.args.n_critic
 
             self.generator.eval()
             self.discriminator.eval()
-            with torch.no_grad():
-                for val_imgs, val_c in val_dataloader:
-                    val_imgs = val_imgs.to(self.device)
-                    val_c = val_c.to(self.device)
+            for val_imgs, val_c in val_dataloader:
+                val_imgs = val_imgs.to(self.device)
+                val_c = val_c.to(self.device)
+
+                # VQGAN is frozen anyway, no need for gradients here
+                with torch.no_grad():
                     val_latents = self.vq_wrapper.encode(val_imgs)
-                    z = torch.randn(val_imgs.shape[0], self.args.latent_dim, device=self.device)
-                    fake_val_imgs = self.generator(z, val_c)
 
-                    real_val = self.discriminator(val_latents, val_c)
-                    fake_val = self.discriminator(fake_val_imgs, val_c)
-                    val_gp = compute_gradient_penalty(self.discriminator, val_latents, fake_val_imgs, val_c, self.device)
+                # Generator output must track gradients (for GP)
+                z = torch.randn(val_imgs.shape[0], self.args.latent_dim, device=self.device)
+                fake_val_latents = self.generator(z, val_c)
 
-                    val_d_loss = -torch.mean(real_val) + torch.mean(fake_val) + self.args.lambda_gp * val_gp
-                    val_g_loss = -torch.mean(self.discriminator(self.generator(z, val_c), val_c))
+                # Compute gradient penalty in latent space (not decoded!)
+                val_gp = compute_gradient_penalty(self.discriminator, val_latents, fake_val_latents, val_c, self.device)
 
-                    val_d_losses.append(val_d_loss.item())
-                    val_g_losses.append(val_g_loss.item())
+                # Discriminator outputs (requires grad=True)
+                real_val = self.discriminator(val_latents, val_c)
+                fake_val = self.discriminator(fake_val_latents, val_c)
+
+                val_d_loss = -torch.mean(real_val) + torch.mean(fake_val) + self.args.lambda_gp * val_gp
+
+                # Generator loss (we can reuse fake_val_latents here or resample z)
+                val_g_loss = -torch.mean(self.discriminator(self.generator(z, val_c), val_c))
+
+                val_d_losses.append(val_d_loss.item())
+                val_g_losses.append(val_g_loss.item())
 
             self.generator.train()
             self.discriminator.train()
@@ -113,22 +123,22 @@ class TrainWGAN_GP:
                 train_loss_avg = sum(train_d_losses) / len(train_d_losses)
                 val_loss_avg = sum(val_d_losses) / len(val_d_losses)
 
-                self.log_losses['epochs'].append(epoch)
-                self.log_losses['train_loss_avg'].append(np.log(train_loss_avg + 1e-8))
-                self.log_losses['val_loss_avg'].append(np.log(val_loss_avg + 1e-8))
+                self.losses['epochs'].append(epoch)
+                self.losses['train_loss_avg'].append(train_loss_avg)
+                self.losses['val_loss_avg'].append(val_loss_avg)
 
-                np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
+                np.save(os.path.join(self.results_dir, "loss.npy"), np.array([self.losses[k] for k in self.losses]))
 
                 if epoch % self.args.gan_sample_interval == 0:
                     plt.figure(figsize=(10, 5))
-                    plt.plot(self.log_losses['epochs'], self.log_losses['train_loss_avg'], label='Train Log-Loss')
-                    plt.plot(self.log_losses['epochs'], self.log_losses['val_loss_avg'], label='Val Log-Loss')
+                    plt.plot(self.losses['epochs'], self.losses['train_loss_avg'], label='Train Loss')
+                    plt.plot(self.losses['epochs'], self.losses['val_loss_avg'], label='Val Loss')
                     plt.xlabel('Epochs')
-                    plt.ylabel('Average Log-Loss')
+                    plt.ylabel('Average Loss')
                     plt.title('WGAN-GP Train/Val Loss')
                     plt.legend()
                     plt.grid(True)
-                    plt.savefig(os.path.join(self.results_dir, "log_loss.png"), dpi=300, bbox_inches="tight", transparent=True)
+                    plt.savefig(os.path.join(self.results_dir, "loss.png"), dpi=300, bbox_inches="tight", transparent=True)
                     plt.close()
 
                     if self.args.save_model:

@@ -87,8 +87,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     done
 
     if [ "$IS_GAN" = true ]; then
-        PYTHON_SCRIPT="training_wgangp.py"
-        JOB_TYPE="wgangp"
+        PYTHON_SCRIPT="training_wgan_gp.py"
+        JOB_TYPE="wgan_gp"
     elif [ "$IS_TRANSFORMER" = true ]; then
         PYTHON_SCRIPT="training_transformer.py"
         JOB_TYPE="transformer"
@@ -124,8 +124,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         if [ -f "$SAVE_DIR/training_status.txt" ] && grep -q "Training completed successfully" "$SAVE_DIR/training_status.txt"; then
             if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
                 if [ "$IS_GAN" = true ]; then
-                    EVAL_PY_SCRIPT="eval_wgangp.py"
-                    EVAL_ARG="--run_name \$runname"
+                    EVAL_PY_SCRIPT="eval_wgan_gp.py"
+                    EVAL_ARG="--gan_name \$runname --is_gan True"
                 elif [ "$IS_TRANSFORMER" = true ]; then
                     EVAL_PY_SCRIPT="eval_transformer.py"
                     EVAL_ARG="--t_name \$runname --is_t True"
@@ -144,7 +144,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc
@@ -188,7 +188,7 @@ EOL
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc
@@ -220,8 +220,8 @@ EOL
     echo "Training job submitted with ID $TRAIN_JOB_ID"
 
     if [ "$IS_GAN" = true ]; then
-        EVAL_PY_SCRIPT="eval_wgangp.py"
-        EVAL_ARG="--run_name \$runname"
+        EVAL_PY_SCRIPT="eval_wgan_gp.py"
+        EVAL_ARG="--gan_name \$runname --is_gan True"
     elif [ "$IS_TRANSFORMER" = true ]; then
         EVAL_PY_SCRIPT="eval_transformer.py"
         EVAL_ARG="--t_name \$runname --is_t True"
@@ -240,7 +240,7 @@ EOL
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --gpu-bind=verbose,per_task:1
 
 . ~/.bashrc

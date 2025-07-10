@@ -14,7 +14,10 @@ from args import load_args
 class Generator(nn.Module):
     def __init__(self, args):
         super(Generator, self).__init__()
-        self.latent_shape = (args.latent_channels, args.latent_size, args.latent_size)
+        temp_args = deepcopy(args)
+        temp_args.is_gan = False
+        vq_args = load_args(temp_args)
+        self.img_shape = (vq_args.latent_dim, 16, 16)
 
         def block(in_feat, out_feat, normalize=True):
             layers = [nn.Linear(in_feat, out_feat)]
@@ -28,21 +31,24 @@ class Generator(nn.Module):
             *block(256, 512),
             *block(512, 1024),
             *block(1024, 2048),
-            nn.Linear(2048, int(np.prod(self.latent_shape))),
+            nn.Linear(2048, int(np.prod(self.img_shape))),
         )
 
     def forward(self, z, c):
         x = torch.cat((z, c), dim=1)
         latents = self.model(x)
-        return latents.view(x.size(0), *self.latent_shape)
+        return latents.view(x.size(0), *self.img_shape)
 
 
 class Discriminator(nn.Module):
     def __init__(self, args):
         super(Discriminator, self).__init__()
-        self.latent_shape = (args.latent_channels, args.latent_size, args.latent_size)
+        temp_args = deepcopy(args)
+        temp_args.is_gan = False
+        vq_args = load_args(temp_args)
+        self.img_shape = (vq_args.latent_dim, 16, 16)
         self.model = nn.Sequential(
-            nn.Linear(int(np.prod(self.latent_shape)) + args.c_input_dim, 512),
+            nn.Linear(int(np.prod(self.img_shape)) + args.c_input_dim, 512),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2, inplace=True),
@@ -50,7 +56,7 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, z, c):
-        z_flat = z.view(z.size(0), -1)
+        z_flat = z.reshape(z.size(0), -1)
         input_vec = torch.cat((z_flat, c), dim=1)
         validity = self.model(input_vec)
         return validity
@@ -83,12 +89,16 @@ class VQGANLatentWrapper(nn.Module):
         for param in self.vqgan.parameters():
             param.requires_grad = False
 
-    def encode(self, x):
-        z_e = self.vqgan.encoder(x)
-        z_q = self.vqgan.quant_conv(z_e)  # Continuous latent space before quantization
-        z_q, _, _ = self.vqgan.quantize(z_q)  # Discrete vector embeddings
-        return z_q
+    @torch.no_grad()
+    def encode(self, x, is_c=False):
+        # Conditional case
+        if is_c:
+            quant_z, _, _ = self.cvqgan.encode(x)
+        else:
+            quant_z, _, _ = self.vqgan.encode(x)
+        return quant_z
 
+    @torch.no_grad()
     def decode(self, z):
         return self.vqgan.decode(z)
 

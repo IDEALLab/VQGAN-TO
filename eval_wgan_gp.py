@@ -93,15 +93,15 @@ class EvalWGAN_GP:
         np.save(os.path.join(self.eval_dir, "vfs_real.npy"), np.array(all_real_vfs))
         np.save(os.path.join(self.eval_dir, "vfs_mae.npy"), np.array(all_volume_mae))
 
-        log_vf_mae = np.log(np.mean(all_volume_mae) + 1e-8)
+        vf_mae = np.mean(all_volume_mae)
         avg_components = np.mean(component_counts)
 
         print(f"\nWGAN-GP Evaluation:")
-        print(f"  Log Volume Fraction MAE: {log_vf_mae:.6f}")
+        print(f"  Volume Fraction MAE: {vf_mae:.6f}")
         print(f"  Avg # Disconnected Fluid Segments: {avg_components:.2f}")
 
         metrics = {
-            "log_vf_mae": log_vf_mae,
+            "vf_mae": vf_mae,
             "avg_disconnected_fluid_segments": avg_components
         }
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)

@@ -106,10 +106,10 @@ def get_args():
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--n_critic", type=int, default=5, help="number of training steps for discriminator per iter")
     parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
-    parser.add_argument('--gan_min_validation', type=str2bool, default=True)
+    parser.add_argument('--gan_min_validation', type=str2bool, default=False)
     parser.add_argument("--lambda_gp", type=float, default=10.0)
-    parser.add_argument('--gan_name', type=str, default="wgan_gp_baseline")
     parser.add_argument("--gan_sample_interval", type=int, default=400, help="interval betwen image samples")
+    parser.add_argument('--gan_name', type=str, default="wgan_baseline")
 
     args, _ = parser.parse_known_args()
 
