@@ -110,6 +110,7 @@ def get_args():
     parser.add_argument("--lambda_gp", type=float, default=10.0)
     parser.add_argument("--gan_sample_interval", type=int, default=10, help="interval betwen image samples")
     parser.add_argument('--gan_name', type=str, default="wgan_baseline")
+    parser.add_argument('--gan_use_cvq', type=str2bool, default=True)
 
     args, _ = parser.parse_known_args()
 

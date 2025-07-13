@@ -21,7 +21,6 @@ class VQGANTransformer(nn.Module):
             param.requires_grad = False
 
         if args.t_is_c:
-            # TODO: create a new copy of args with args.is_c = True to pass to self.cvqgan
             temp_cvq_args = deepcopy(args)
             temp_cvq_args.is_c = True
             temp_cvq_args.is_t = False

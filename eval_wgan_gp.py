@@ -63,6 +63,10 @@ class EvalWGAN_GP:
                 cond = cond.to(self.args.device, non_blocking=True)
                 imgs = imgs.to(self.args.device, non_blocking=True)
 
+                if self.args.gan_use_cvq:
+                    cond = self.vq_wrapper.c_encode(cond)
+                    cond = cond.view(cond.shape[0], -1)
+
                 z = torch.randn(cond.size(0), self.args.latent_dim, device=self.args.device)
                 fake_latents = self.model(z, cond).clamp(0, 1)
                 fake_imgs = self.vq_wrapper.decode(fake_latents).clamp(0, 1)
