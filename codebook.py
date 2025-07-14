@@ -162,7 +162,7 @@ class Online_Codebook(nn.Module):
                 loss +=  contra_loss
 
         # return z_q, loss, (perplexity, min_encodings, encoding_indices)
-        return loss, z_q, encoding_indices
+        return z_q, encoding_indices, loss
 
 class FeaturePool():
     """
