@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+from copy import deepcopy
 from encoder import Encoder, CondEncoder
 from decoder import Decoder, CondDecoder
-from codebook import Codebook
+from codebook import Codebook, Online_Codebook
 
 
 class VQGAN(nn.Module):
@@ -18,8 +19,18 @@ class VQGAN(nn.Module):
             self.decoder = Decoder(args).to(device=args.device)
             self.quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
             self.post_quant_conv = nn.Conv2d(args.latent_dim, args.latent_dim, 1).to(device=args.device)
+
+        if args.use_DAE:
+            assert not args.is_c, "DAE is not supported for conditional VQGAN"
+            assert args.DAE_dropout > 0.0, "DAE dropout must be greater than 0"
+            temp_args = deepcopy(args)
+            temp_args.DAE_dropout = 0.0
+            self.new_decoder = Decoder(temp_args).to(device=args.device)
+        else:
+            assert args.DAE_dropout == 0.0, "DAE dropout must be 0 if not using DAE"
+            assert args.DAE_switch_epoch > args.epochs, "DAE switch epoch must be greater than total epochs if not using DAE"
         
-        self.codebook = Codebook(args).to(device=args.device)
+        self.codebook = (Online_Codebook if args.use_Online else Codebook(args)).to(device=args.device)
 
     def forward(self, imgs):
         encoded_images = self.encoder(imgs)

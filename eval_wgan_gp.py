@@ -30,6 +30,7 @@ class EvalWGAN_GP:
         checkpoint = process_state_dict(torch.load(ckpt_path, map_location=args.device, weights_only=True))
         self.model.load_state_dict(checkpoint, strict=False)
         self.model.eval()
+        self.vq_wrapper.eval()
 
         self.evaluate()
 
@@ -60,16 +61,19 @@ class EvalWGAN_GP:
 
         with torch.no_grad():
             for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Evaluating WGAN-GP")):
-                cond = cond.to(self.args.device, non_blocking=True)
-                imgs = imgs.to(self.args.device, non_blocking=True)
-
+                sample_imgs = imgs.to(self.args.device)
+                sample_c = cond.to(self.args.device)
                 if self.args.gan_use_cvq:
-                    cond = self.vq_wrapper.c_encode(cond)
-                    cond = cond.view(cond.shape[0], -1)
+                    sample_c = self.vq_wrapper.c_encode(sample_c)
+                    sample_c = sample_c.view(sample_c.shape[0], -1)
 
-                z = torch.randn(cond.size(0), self.args.latent_dim, device=self.args.device)
-                fake_latents = self.model(z, cond).clamp(0, 1)
-                fake_imgs = self.vq_wrapper.decode(fake_latents).clamp(0, 1)
+                # real_latents = self.vq_wrapper.encode(sample_imgs)
+                # recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
+
+                z = torch.randn(sample_imgs.shape[0], self.args.latent_dim, device=self.args.device)
+                gen_latents = self.model(z, sample_c)
+                fake_imgs = self.vq_wrapper.decode(gen_latents).clamp(0, 1)
+                
                 all_generated.append(fake_imgs.cpu().numpy())
                 all_real_eval.append(imgs.cpu().numpy())
 

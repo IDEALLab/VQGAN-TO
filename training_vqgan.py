@@ -70,6 +70,20 @@ class TrainVQGAN:
             epoch_g_losses = []
             val_losses = []
             epoch_codebook_usage = {}  # Reset codebook usage tracking for each epoch
+
+            if epoch == args.DAE_switch_epoch and args.use_DAE:
+                self.vqgan.decoder = self.vqgan.new_decoder
+                del self.vqgan.new_decoder
+                for m in [self.vqgan.encoder, self.vqgan.codebook, self.vqgan.quant_conv, self.vqgan.post_quant_conv]:
+                    for p in m.parameters():
+                        p.requires_grad = False
+                
+                self.opt_vq = torch.optim.Adam(
+                    list(self.vqgan.decoder.parameters()),
+                    lr=args.learning_rate, eps=1e-08, betas=(args.beta1, args.beta2)
+                )
+                tqdm.write(f"DAE Switched to full decoder and froze encoder/codebook at epoch {epoch}")
+
             
             for i, (imgs, _) in enumerate(dataloader):
                 imgs = imgs.to(device=args.device, non_blocking=True)

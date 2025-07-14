@@ -145,7 +145,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --gpu-bind=verbose,per_task:1
+#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -154,7 +154,11 @@ eval_dir=~/scratch/VQGAN/evals/\$runname
 
 module unload python
 source ~/vqgan_env/bin/activate
-cd "\$wd"
+cd "\$wd" || { echo "Failed to cd into \$wd"; exit 1; }
+
+echo "Running on: \$(hostname)"
+nvidia-smi
+env | grep SLURM
 
 if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evaluation completed" "\$eval_dir/eval_output.txt"; then
     echo "Evaluation already completed."
@@ -162,7 +166,8 @@ if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evalua
 fi
 
 mkdir -p "\$eval_dir"
-python $EVAL_PY_SCRIPT $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
+PYTHON_EVAL_PATH="\$wd/$EVAL_PY_SCRIPT"
+python "\$PYTHON_EVAL_PATH" $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
                 chmod +x "$EVAL_SCRIPT"
@@ -189,7 +194,7 @@ EOL
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --gpu-bind=verbose,per_task:1
+#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -200,10 +205,18 @@ mkdir -p "\$sd"
 
 module unload python
 source ~/vqgan_env/bin/activate
-cd "\$wd"
+cd "\$wd" || { echo "Failed to cd into \$wd"; exit 1; }
 
-echo "Running $PYTHON_SCRIPT with: $PARAM_STRING --run_name \$runname"
-python $PYTHON_SCRIPT $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
+echo "Running on: \$(hostname)"
+nvidia-smi
+env | grep SLURM
+
+# echo "Warming up GPU"
+# python -c "import torch; print('CUDA available:', torch.cuda.is_available()); torch.randn(1).cuda()"
+
+PYTHON_SCRIPT_PATH="\$wd/$PYTHON_SCRIPT"
+echo "Running \$PYTHON_SCRIPT_PATH with: $PARAM_STRING --run_name \$runname"
+python "\$PYTHON_SCRIPT_PATH" $PARAM_STRING --run_name "\$runname" > "\$sd/output.txt" 2>&1
 
 if [ \$? -eq 0 ]; then
     echo "Training completed successfully at \$(date)" > "\$sd/training_status.txt"
@@ -241,7 +254,7 @@ EOL
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --gpu-bind=verbose,per_task:1
+#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -250,7 +263,11 @@ eval_dir=~/scratch/VQGAN/evals/\$runname
 
 module unload python
 source ~/vqgan_env/bin/activate
-cd "\$wd"
+cd "\$wd" || { echo "Failed to cd into \$wd"; exit 1; }
+
+echo "Running on: \$(hostname)"
+nvidia-smi
+env | grep SLURM
 
 if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evaluation completed" "\$eval_dir/eval_output.txt"; then
     echo "Evaluation already completed."
@@ -258,7 +275,8 @@ if [ -d "\$eval_dir" ] && [ -f "\$eval_dir/eval_output.txt" ] && grep -q "Evalua
 fi
 
 mkdir -p "\$eval_dir"
-python $EVAL_PY_SCRIPT $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
+PYTHON_EVAL_PATH="\$wd/$EVAL_PY_SCRIPT"
+python "\$PYTHON_EVAL_PATH" $EVAL_ARG > "\$eval_dir/eval_output.txt" 2>&1
 echo "Evaluation completed at \$(date)" >> "\$eval_dir/eval_output.txt"
 EOL
 

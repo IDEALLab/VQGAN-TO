@@ -209,7 +209,14 @@ A_Tr_c4_5:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interva
 A_Tr_c4_6:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.0,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
 A_Tr_c4_7:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.5,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
 
-A_wgan_c4:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64
 A_wgan_c4_1:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=1
 A_wgan_c4_3:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=3
+A_wgan_c4_5:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=5
 A_wgan_c4_10:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10
+A_wgan_c4_15:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=15
+
+A_c4_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+A_c4_DAE_050:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.5
+A_c4_DAE_040:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4
+
+

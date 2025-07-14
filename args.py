@@ -47,12 +47,15 @@ def get_args():
 
     parser.add_argument('--use_greyscale_lpips', type=str2bool, default=True)
     parser.add_argument('--spectral_disc', type=str2bool, default=False)
-    parser.add_argument('--use_DAE', type=str2bool, default=False)
-    parser.add_argument('--use_Online', type=str2bool, default=False)
-
     parser.add_argument('--codebook_mod_init', type=str2bool, default=False)
     parser.add_argument('--vq_min_validation', type=str2bool, default=False)
     parser.add_argument('--vq_track_val_loss', type=str2bool, default=True)
+
+    parser.add_argument('--use_Online', type=str2bool, default=False)
+    parser.add_argument('--use_DAE', type=str2bool, default=False)
+    parser.add_argument('--DAE_dropout', type=float, default=0.0)
+    parser.add_argument('--DAE_switch_epoch', type=int, default=999999)
+
 
     # Continuous AE
     parser.add_argument('--no_vq', type=str2bool, default=False)

@@ -8,6 +8,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         in_channels = args.decoder_channels[0]
         resolution = args.decoder_start_resolution
+        self.dropout = nn.Dropout2d(p=args.DAE_dropout)
         layers = [nn.Conv2d(args.latent_dim, in_channels, 3, 1, 1),
                   ResidualBlock(in_channels, in_channels),
                   NonLocalBlock(in_channels),
@@ -20,6 +21,9 @@ class Decoder(nn.Module):
                 in_channels = out_channels
                 if resolution in args.decoder_attn_resolutions:
                     layers.append(NonLocalBlock(in_channels))
+                if args.use_DAE: 
+                    layers.append(self.dropout)  # Apply dropout after each residual block
+                
             if i != 0:
                 layers.append(UpSampleBlock(in_channels))
                 resolution *= 2
