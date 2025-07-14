@@ -12,7 +12,7 @@ from copy import deepcopy
 from vqgan import VQGAN
 from scipy import ndimage
 from sklearn.metrics import pairwise_distances
-# from torch_topological.nn import SummaryStatisticLoss, CubicalComplex
+from torch_topological.nn import CubicalComplex #, SummaryStatisticLoss
 from paretoset import paretoset
 
 
@@ -292,7 +292,7 @@ def MMD(X_gen, X_test):
 
 # Topological distance: absolute value of difference between Betti numbers for summary statistic loss
 def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, reduction='sum', rounding_bias=0, imageops=True, return_pair=False):
-    c = None # CubicalComplex()
+    c = CubicalComplex()
     # topo_loss = SummaryStatisticLoss()
 
     if not torch.is_tensor(X): X = torch.tensor(X)
