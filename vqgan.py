@@ -25,12 +25,19 @@ class VQGAN(nn.Module):
             assert args.DAE_dropout > 0.0, "DAE dropout must be greater than 0"
             temp_args = deepcopy(args)
             temp_args.DAE_dropout = 0.0
-            self.new_decoder = Decoder(temp_args).to(device=args.device)
+            self.add_module("new_decoder", Decoder(temp_args).to(device=args.device))
         else:
             assert args.DAE_dropout == 0.0, "DAE dropout must be 0 if not using DAE"
             assert args.DAE_switch_epoch > args.epochs, "DAE switch epoch must be greater than total epochs if not using DAE"
         
         self.codebook = (Online_Codebook(args) if args.use_Online else Codebook(args)).to(device=args.device)
+
+    def switch_to_new_decoder(self):
+        if hasattr(self, "new_decoder"):
+            self.decoder = self.new_decoder
+            delattr(self, "new_decoder")  # Now safe due to registration
+        else:
+            print("Warning: Tried to switch to new_decoder, but it does not exist.")
 
     def forward(self, imgs):
         encoded_images = self.encoder(imgs)

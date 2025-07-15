@@ -100,25 +100,20 @@ class LatentAnalysis:
 
                 # Topological perturbation on a single random latent sample
                 idx = np.random.choice(len(zs))
-                q = zs[idx]
-                q_tensor = torch.tensor(q).unsqueeze(0).to(self.device)
-                recon = self.vqgan.decode(q_tensor).detach().cpu().numpy()[0]
+                q = torch.tensor(zs[idx]).to(self.device).unsqueeze(0)
+                recon = self.vqgan.decode(q).detach().cpu().numpy()[0]
+                q_alt = torch.clone(q).to(self.device)
 
-                altered_accum = []
                 for alt in alts:
-                    q_alt = torch.tensor(q).unsqueeze(0).to(self.device)
                     q_alt = change_specific(q_alt, alt[0], alt[1])
-                    q_alt, _, _ = self.vqgan.codebook(q_alt)
-                    altered = self.vqgan.decode(q_alt).detach().cpu().numpy()[0]
-                    altered_accum.append(altered)
-
-                altered_mean = np.mean(np.stack(altered_accum), axis=0)
+                
+                altered = self.vqgan.decode(q_alt).detach().cpu().numpy()[0]
 
                 stats = [
                     topo_distance(recon, normalize=False),
-                    topo_distance(altered_mean, normalize=False),
+                    topo_distance(altered, normalize=False),
                     topo_distance(1 - recon, padding=False, normalize=False),
-                    topo_distance(1 - altered_mean, padding=False, normalize=False)
+                    topo_distance(1 - altered, padding=False, normalize=False)
                 ]
 
                 print(f"Batch {batch_idx}: Solid Δ = {stats[1] - stats[0]:.3f}, Fluid Δ = {stats[3] - stats[2]:.3f}")

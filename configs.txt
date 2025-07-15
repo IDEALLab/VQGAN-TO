@@ -198,6 +198,7 @@ A_c1:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,la
 A_c2:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
 A_c3:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1
 A_c4:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1
+A_c5:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1
 
 A_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=999999,epochs=1000,sample_interval=10
 
@@ -219,4 +220,5 @@ A_c4_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128
 A_c4_DAE_050:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.5,DAE_switch_epoch=50
 A_c4_DAE_040:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
 
+A_c5_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
 

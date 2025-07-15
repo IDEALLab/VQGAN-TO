@@ -145,7 +145,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -189,12 +188,10 @@ EOL
 #SBATCH -t 08:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
-#SBATCH --exclusive
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"
@@ -254,7 +251,6 @@ EOL
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:1
-#SBATCH --requeue
 
 . ~/.bashrc
 runname="$RUNNAME"

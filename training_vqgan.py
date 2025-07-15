@@ -72,8 +72,7 @@ class TrainVQGAN:
             epoch_codebook_usage = {}  # Reset codebook usage tracking for each epoch
 
             if epoch == args.DAE_switch_epoch and args.use_DAE:
-                self.vqgan.decoder = self.vqgan.new_decoder
-                del self.vqgan.new_decoder
+                self.vqgan.switch_to_new_decoder()
                 for m in [self.vqgan.encoder, self.vqgan.codebook, self.vqgan.quant_conv, self.vqgan.post_quant_conv]:
                     for p in m.parameters():
                         p.requires_grad = False
