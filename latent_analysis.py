@@ -47,7 +47,7 @@ class LatentAnalysis:
 
         args = load_args(args)
         self.args = args
-        self.args.batch_size = 2  # Set batch size to 2 for latent analysis
+        self.args.batch_size = 2  # IMPORTANT: Set batch size to 2 for latent analysis (hard-coded)
         self.device = args.device
         self.vqgan = load_vqgan(args).eval().to(self.device)
         self.run()
@@ -72,55 +72,44 @@ class LatentAnalysis:
                 zs = encoded.detach().cpu().numpy()
                 outputs = decoded_images.cpu().numpy()
 
-                # Pick two indices for which the number of fluid segments is 1
-                idx1 = 0
-                num_segments = 999
-                while num_segments != 1 and idx1 < len(imgs):
-                    num_segments = topo_distance(1-imgs[idx1], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
-                    idx1 += 1
-                
-                idx2 = idx1
-                num_segments = 999
-                while num_segments != 1 and idx2 < len(imgs):
-                    num_segments = topo_distance(1-imgs[idx2], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
-                    idx2 += 1
+                if len(zs) == 2:
+                    num_segments_1 = topo_distance(1-imgs[0], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                    num_segments_2 = topo_distance(1-imgs[1], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
 
-                if num_segments == 1:
-                    interp_topos.append([])
-                    s1, s2 = zs[idx1-1], zs[idx2-1]
-                    diff = s2 - s1
-                    print(f"Batch {batch_idx}: Interpolating between samples with 1 fluid segment: {idx1-1} and {idx2-1}")
+                    if num_segments_1 == 1 and num_segments_2 == 1:
+                        interp_topos.append([])
+                        s1, s2 = zs[0], zs[1]
+                        diff = s2 - s1
 
-                    iv_list, dv_list = [], []
-                    for step in range(num_steps + 1):
-                        alpha = step / num_steps
-                        new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
+                        iv_list, dv_list = [], []
+                        for step in range(num_steps + 1):
+                            alpha = step / num_steps
+                            new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
 
-                        if step in [0, num_steps]:
-                            new_decode = self.vqgan.decode(new).detach().cpu().numpy()[0]  # Bypass quantization at endpoints
-                        else:
-                            new_q, _, _ = self.vqgan.codebook(new)
-                            new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
+                            if step in [0, num_steps]:
+                                new_decode = self.vqgan.decode(new).detach().cpu().numpy()[0]  # Bypass quantization at endpoints
+                            else:
+                                new_q, _, _ = self.vqgan.codebook(new)
+                                new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
 
-                        new_decode = np.clip(new_decode, 0, 1)
-                        dist = topo_distance(1 - new_decode, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
-                        dist = dist.item()
+                            new_decode = np.clip(new_decode, 0, 1)
+                            dist = topo_distance(1 - new_decode, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                            dist = dist.item()
 
-                        iv_list.append(intermediate_value_loss(new_decode))
-                        if step > 0:
-                            dv_list.append(np.abs(new_decode - prev_decode).mean())
-                        prev_decode = deepcopy(new_decode)
-                        interp_topos[-1].append(dist)
+                            iv_list.append(intermediate_value_loss(new_decode))
+                            if step > 0:
+                                dv_list.append(np.abs(new_decode - prev_decode).mean())
+                            prev_decode = deepcopy(new_decode)
+                            interp_topos[-1].append(dist)
 
-                    interp_ivs.append(iv_list)
-                    interp_dvs.append(dv_list)
+                        interp_ivs.append(iv_list)
+                        interp_dvs.append(dv_list)
 
-                else:
-                    print(f"Skipping batch {batch_idx} due to lack of samples with 1 fluid segment.")
+                    else:
+                        print(f"Skipping batch {batch_idx} due to both samples not having 1 fluid segment.")
 
                 # Topological perturbation on a single random latent sample
-                idx = np.random.choice(len(zs))
-                q = torch.tensor(zs[idx]).to(self.device).unsqueeze(0)
+                q = torch.tensor(zs[0]).to(self.device).unsqueeze(0)
                 recon = self.vqgan.decode(q).detach().cpu().numpy()[0]
                 q_alt = torch.clone(q).to(self.device)
 
