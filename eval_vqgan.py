@@ -31,7 +31,7 @@ class EvalVQGAN:
         self.evaluate(args)
 
     def evaluate(self, args):
-        (_, _, test_dataloader), means, stds = get_data(args)
+        (_, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
         
         # Metrics to track
         metrics = {

@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
+from torch.utils.data import Subset, DataLoader
 
 from utils import get_data, load_vqgan, set_precision, set_all_seeds, topo_distance
 from args import get_args, load_args, print_args
@@ -54,7 +55,35 @@ class LatentAnalysis:
 
     def run(self):
         args = self.args
-        (_, _, test_dataloader), _, _ = get_data(args)
+        # Load all test data
+        (_, _, test_dataloader_full), _, _ = get_data(args, use_val_split=True)
+        test_dataset_full = test_dataloader_full.dataset
+
+        single_fluid_path = "../data/single_fluid.npy"
+
+        if os.path.exists(single_fluid_path):
+            print(f"Loading cached single-fluid indices from {single_fluid_path}")
+            valid_indices = np.load(single_fluid_path)
+        else:
+            print("Computing single-fluid indices...")
+            valid_indices = []
+            for i in tqdm(range(len(test_dataset_full)), desc="Checking fluid segments (reconstructed)"):
+                x, _ = test_dataset_full[i]
+                x = x.unsqueeze(0).to(args.device)
+                with torch.no_grad():
+                    x_recon, _, _ = self.vqgan(x)
+                    x_recon = x_recon.clamp(0, 1).detach().cpu().numpy()[0]
+                num_segments = topo_distance(1 - x_recon, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                if num_segments == 1:
+                    valid_indices.append(i)
+            valid_indices = np.array(valid_indices)
+            os.makedirs("../data", exist_ok=True)
+            np.save(single_fluid_path, valid_indices)
+            print(f"Saved {len(valid_indices)} single-fluid samples.")
+
+        # Create subset and DataLoader
+        subset = Subset(test_dataset_full, valid_indices.tolist())
+        test_dataloader = DataLoader(subset, batch_size=args.batch_size, shuffle=False)
 
         interp_topos, interp_ivs, interp_dvs = [], [], []
         topo_accum = []
@@ -73,40 +102,33 @@ class LatentAnalysis:
                 outputs = decoded_images.cpu().numpy()
 
                 if len(zs) == 2:
-                    num_segments_1 = topo_distance(1-imgs[0], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
-                    num_segments_2 = topo_distance(1-imgs[1], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                    interp_topos.append([])
+                    s1, s2 = zs[0], zs[1]
+                    diff = s2 - s1
 
-                    if num_segments_1 == 1 and num_segments_2 == 1:
-                        interp_topos.append([])
-                        s1, s2 = zs[0], zs[1]
-                        diff = s2 - s1
+                    iv_list, dv_list = [], []
+                    for step in range(num_steps + 1):
+                        alpha = step / num_steps
+                        new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
 
-                        iv_list, dv_list = [], []
-                        for step in range(num_steps + 1):
-                            alpha = step / num_steps
-                            new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
+                        if step in [0, num_steps]:
+                            new_decode = self.vqgan.decode(new).detach().cpu().numpy()[0]  # Bypass quantization at endpoints
+                        else:
+                            new_q, _, _ = self.vqgan.codebook(new)
+                            new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
 
-                            if step in [0, num_steps]:
-                                new_decode = self.vqgan.decode(new).detach().cpu().numpy()[0]  # Bypass quantization at endpoints
-                            else:
-                                new_q, _, _ = self.vqgan.codebook(new)
-                                new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
+                        new_decode = np.clip(new_decode, 0, 1)
+                        dist = topo_distance(1 - new_decode, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                        dist = dist.item()
 
-                            new_decode = np.clip(new_decode, 0, 1)
-                            dist = topo_distance(1 - new_decode, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
-                            dist = dist.item()
+                        iv_list.append(intermediate_value_loss(new_decode))
+                        if step > 0:
+                            dv_list.append(np.abs(new_decode - prev_decode).mean())
+                        prev_decode = deepcopy(new_decode)
+                        interp_topos[-1].append(dist)
 
-                            iv_list.append(intermediate_value_loss(new_decode))
-                            if step > 0:
-                                dv_list.append(np.abs(new_decode - prev_decode).mean())
-                            prev_decode = deepcopy(new_decode)
-                            interp_topos[-1].append(dist)
-
-                        interp_ivs.append(iv_list)
-                        interp_dvs.append(dv_list)
-
-                    else:
-                        print(f"Skipping batch {batch_idx} due to both samples not having 1 fluid segment.")
+                    interp_ivs.append(iv_list)
+                    interp_dvs.append(dv_list)
 
                 # Topological perturbation on a single random latent sample
                 q = torch.tensor(zs[0]).to(self.device).unsqueeze(0)
