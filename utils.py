@@ -309,9 +309,10 @@ def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, redu
         assert len(X) == len(Y)
 
     if preprocess:
-        X = torch.round(torch.clamp(X, 0, 1) + rounding_bias)
-        if not Y is None: 
-            Y = torch.round(torch.clamp(Y, 0, 1) + rounding_bias)
+        threshold = 0.5 - rounding_bias
+        X = (X > threshold).float()
+        if Y is not None:
+            Y = (Y > threshold).float()
 
     losses = torch.zeros(len(X), 1+int(return_pair))
 

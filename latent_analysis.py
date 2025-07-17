@@ -47,6 +47,7 @@ class LatentAnalysis:
 
         args = load_args(args)
         self.args = args
+        self.args.batch_size = 2  # Set batch size to 2 for latent analysis
         self.device = args.device
         self.vqgan = load_vqgan(args).eval().to(self.device)
         self.run()
@@ -55,7 +56,7 @@ class LatentAnalysis:
         args = self.args
         (_, _, test_dataloader), _, _ = get_data(args)
 
-        interp_mses, interp_ivs, interp_dvs = [], [], []
+        interp_topos, interp_ivs, interp_dvs = [], [], []
         topo_accum = []
         qs_dim = args.latent_dim
         num_alts = 64
@@ -71,32 +72,51 @@ class LatentAnalysis:
                 zs = encoded.detach().cpu().numpy()
                 outputs = decoded_images.cpu().numpy()
 
-                # Pick two random indices for interpolation
-                idx1, idx2 = np.random.choice(len(zs), size=2, replace=False)
-                o1, o2 = outputs[idx1], outputs[idx2]
-                s1, s2 = zs[idx1], zs[idx2]
-                diff = s2 - s1
+                # Pick two indices for which the number of fluid segments is 1
+                idx1 = 0
+                num_segments = 999
+                while num_segments != 1 and idx1 < len(imgs):
+                    num_segments = topo_distance(1-imgs[idx1], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                    idx1 += 1
+                
+                idx2 = idx1
+                num_segments = 999
+                while num_segments != 1 and idx2 < len(imgs):
+                    num_segments = topo_distance(1-imgs[idx2], padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                    idx2 += 1
 
-                mse_list, iv_list, dv_list = [], [], []
-                for step in range(num_steps + 1):
-                    alpha = step / num_steps
-                    new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
-                    new_q, _, _ = self.vqgan.codebook(new)
-                    new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
-                    new_decode = np.clip(new_decode, 0, 1)
+                if num_segments == 1:
+                    interp_topos.append([])
+                    s1, s2 = zs[idx1-1], zs[idx2-1]
+                    diff = s2 - s1
+                    print(f"Batch {batch_idx}: Interpolating between samples with 1 fluid segment: {idx1-1} and {idx2-1}")
 
-                    if step == 0:
-                        mse0 = np.sum((o1 - new_decode) ** 2) + np.sum((o2 - new_decode) ** 2)
-                    mse = (np.sum((o1 - new_decode) ** 2) + np.sum((o2 - new_decode) ** 2)) / mse0
-                    mse_list.append(mse)
-                    iv_list.append(intermediate_value_loss(new_decode))
-                    if step > 0:
-                        dv_list.append(np.abs(new_decode - prev_decode).mean())
-                    prev_decode = deepcopy(new_decode)
+                    iv_list, dv_list = [], []
+                    for step in range(num_steps + 1):
+                        alpha = step / num_steps
+                        new = torch.tensor(s1 + alpha * diff).unsqueeze(0).to(self.device)
 
-                interp_mses.append(mse_list)
-                interp_ivs.append(iv_list)
-                interp_dvs.append(dv_list)
+                        if step in [0, num_steps]:
+                            new_decode = self.vqgan.decode(new).detach().cpu().numpy()[0]  # Bypass quantization at endpoints
+                        else:
+                            new_q, _, _ = self.vqgan.codebook(new)
+                            new_decode = self.vqgan.decode(new_q).detach().cpu().numpy()[0]
+
+                        new_decode = np.clip(new_decode, 0, 1)
+                        dist = topo_distance(1 - new_decode, padding=False, normalize=False, imageops=False, rounding_bias=0.3)
+                        dist = dist.item()
+
+                        iv_list.append(intermediate_value_loss(new_decode))
+                        if step > 0:
+                            dv_list.append(np.abs(new_decode - prev_decode).mean())
+                        prev_decode = deepcopy(new_decode)
+                        interp_topos[-1].append(dist)
+
+                    interp_ivs.append(iv_list)
+                    interp_dvs.append(dv_list)
+
+                else:
+                    print(f"Skipping batch {batch_idx} due to lack of samples with 1 fluid segment.")
 
                 # Topological perturbation on a single random latent sample
                 idx = np.random.choice(len(zs))
@@ -110,20 +130,18 @@ class LatentAnalysis:
                 altered = self.vqgan.decode(q_alt).detach().cpu().numpy()[0]
 
                 stats = [
-                    topo_distance(recon, normalize=False),
-                    topo_distance(altered, normalize=False),
-                    topo_distance(1 - recon, padding=False, normalize=False),
-                    topo_distance(1 - altered, padding=False, normalize=False)
+                    topo_distance(recon, normalize=False), # Num solid segments in original
+                    topo_distance(altered, normalize=False), # Num solid segments in altered
+                    topo_distance(1 - recon, padding=False, normalize=False), # Num fluid segments in original
+                    topo_distance(1 - altered, padding=False, normalize=False) # Num fluid segments in altered
                 ]
 
-                print(f"Batch {batch_idx}: Solid Δ = {stats[1] - stats[0]:.3f}, Fluid Δ = {stats[3] - stats[2]:.3f}")
                 topo_accum.append(stats)
 
-        np.save(os.path.join(self.latent_results_dir, 'interp_mses.npy'), np.array(interp_mses))
+        np.save(os.path.join(self.latent_results_dir, 'interp_topos.npy'), np.array(interp_topos))
         np.save(os.path.join(self.latent_results_dir, 'interp_ivs.npy'), np.array(interp_ivs))
         np.save(os.path.join(self.latent_results_dir, 'interp_dvs.npy'), np.array(interp_dvs))
         np.save(os.path.join(self.latent_results_dir, 'topo_info_all.npy'), np.array(topo_accum))
-        np.save(os.path.join(self.latent_results_dir, 'topo_info_mean.npy'), np.mean(np.array(topo_accum), axis=0))
         np.save(os.path.join(self.latent_results_dir, 'topo_alts.npy'), alts.cpu().numpy())
 
 
