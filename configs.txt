@@ -242,3 +242,14 @@ A_c6_online_126:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128
 
 # To match A_c6 (145)
 A_c6_online_145:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=145,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+
+#####################
+#####################
+#####################
+
+A_c7_cont:val_fraction=0.05,no_vq=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1
+A_c7:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1
+A_c7_DAE_040:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
+A_c7_online:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+    # A_c7_online_X:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=X,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+    # A_c7_online_Y:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=Y,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true

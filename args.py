@@ -28,6 +28,7 @@ def get_args():
     parser.add_argument('--save_model', type=str2bool, default=True)
     parser.add_argument('--sample_interval', type=int, default=1)
     parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"))
+    parser.add_argument('--val_fraction', type=float, default=0.15)
 
     # VQGAN Stage 1 (Autoencoder): Codebook & Training
     parser.add_argument('--latent_dim', type=int, default=256)
@@ -157,7 +158,7 @@ def load_args(args):
             with open(training_args_path, 'r') as f:
                 training_args_dict = json.load(f)
 
-            preserve_keys = ['device', 'batch_size']
+            preserve_keys = ['device']
             if not args.is_t and not args.is_gan:
                 preserve_keys.append('model_name')
             current_args_dict = vars(args)

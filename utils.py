@@ -72,7 +72,7 @@ def get_data(args, use_val_split=False):
     if use_val_split:
         total = len(dataset)
         train_len = int(0.75 * total)
-        val_len = int(0.05 * total)
+        val_len = int(args.val_fraction * total)
         test_len = total - train_len - val_len
         train_data, val_data, test_data = random_split(dataset, [train_len, val_len, test_len], generator=generator)
 
