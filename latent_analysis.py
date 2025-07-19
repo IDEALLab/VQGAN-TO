@@ -59,7 +59,7 @@ class LatentAnalysis:
         (_, _, test_dataloader_full), _, _ = get_data(args, use_val_split=True)
         test_dataset_full = test_dataloader_full.dataset
 
-        single_fluid_path = "../data/single_fluid.npy"
+        single_fluid_path = f"../data/single_fluid_{args.model_name}.npy"
 
         if os.path.exists(single_fluid_path):
             print(f"Loading cached single-fluid indices from {single_fluid_path}")

@@ -272,17 +272,25 @@
 # To match A_c7 (151)
 1_c1_online_151:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=151,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
 
-#########################
-
-1_Tr_c1_cont:is_t=true,model_name=1_c1_cont,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-1_Tr_c1:is_t=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-1_Tr_c1_DAE_040:is_t=true,model_name=1_c1_DAE_040,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-1_Tr_c1_online:is_t=true,model_name=1_c1_online,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-1_Tr_c1_online_122:is_t=true,model_name=1_c1_online_122,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-1_Tr_c1_online_151:is_t=true,model_name=1_c1_online_151,c_model_name=1_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
+# Smaller test cases
+1_c1_online_64:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=64,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+1_c1_online_32:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=32,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+1_c1_online_16:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
 
 #########################
 
-1_wgan_c1:is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10
-1_wgan_c1_cont:is_gan=true,model_name=1_c1_cont,c_model_name=1_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10
+1_Tr_c1_cont:val_fraction=0.05,is_t=true,model_name=1_c1_cont,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1:val_fraction=0.05,is_t=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1_DAE_040:val_fraction=0.05,is_t=true,model_name=1_c1_DAE_040,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1_online:val_fraction=0.05,is_t=true,model_name=1_c1_online,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1_online_122:val_fraction=0.05,is_t=true,model_name=1_c1_online_122,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1_online_151:val_fraction=0.05,is_t=true,model_name=1_c1_online_151,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
+1_Tr_c1_online_64:val_fraction=0.05,is_t=true,model_name=1_c1_online_64,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 
+
+#########################
+
+1_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10,early_stop=false
+1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,c_model_name=1_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10,early_stop=false
+
+#########################

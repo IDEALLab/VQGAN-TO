@@ -39,16 +39,18 @@ class TrainWGAN_GP:
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
 
+        self.best_val_l1 = float("inf")
         self.losses = {
             'epochs': [],
             'train_d_loss': [],
             'train_g_loss': [],
+            'val_l1_loss': [],
         }
 
         self.train()
 
     def train(self):
-        (dataloader, _, _), _, _ = get_data(self.args, use_val_split=False)
+        (dataloader, val_dataloader, _), means, stds = get_data(self.args, use_val_split=True)
 
         for epoch in tqdm(range(self.args.epochs)):
             train_d_losses, train_g_losses = [], []
@@ -57,7 +59,7 @@ class TrainWGAN_GP:
                 imgs = imgs.to(self.device)
                 c = c.to(self.device)
 
-                if args.gan_use_cvq:
+                if self.args.gan_use_cvq:
                     c = self.vq_wrapper.c_encode(c)
                     c = c.view(c.shape[0], -1)
 
@@ -80,10 +82,26 @@ class TrainWGAN_GP:
                 # Train Generator every n_critic steps
                 if i % self.args.n_critic == 0:
                     self.optimizer_G.zero_grad()
+
                     z = torch.randn(imgs.shape[0], self.args.latent_dim, device=self.device)
-                    fake_imgs = self.generator(z, c)
-                    fake_validity = self.discriminator(fake_imgs, c)
-                    g_loss = -torch.mean(fake_validity)
+                    gen_latents = self.generator(z, c)
+                    fake_validity = self.discriminator(gen_latents, c)
+
+                    # Decode generated latents to images
+                    gen_imgs = self.vq_wrapper.decode(gen_latents).clamp(0, 1)
+
+                    # Get real image reconstructions for comparison
+                    with torch.no_grad():
+                        real_latents = self.vq_wrapper.encode(imgs)
+                        recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
+
+                    # L1 loss in image space between generated and reconstructed images
+                    # decode_loss = F.l1_loss(gen_imgs, recon_imgs)
+
+                    # Generator loss: adversarial + perceptual
+                    # λ = 10.0
+                    g_loss = -torch.mean(fake_validity) # + λ * decode_loss
+
                     g_loss.backward()
                     self.optimizer_G.step()
                     train_g_losses.append(g_loss.item())
@@ -91,27 +109,54 @@ class TrainWGAN_GP:
             # Log average losses
             train_d_avg = sum(train_d_losses) / len(train_d_losses)
             train_g_avg = sum(train_g_losses) / len(train_g_losses) if train_g_losses else 0.0
-
             self.losses['epochs'].append(epoch)
             self.losses['train_d_loss'].append(train_d_avg)
             self.losses['train_g_loss'].append(train_g_avg)
 
+            # Validation L1 loss
+            self.generator.eval()
+            self.vq_wrapper.eval()
+            val_l1_losses = []
+
+            with torch.no_grad():
+                for val_imgs, val_c in val_dataloader:
+                    val_imgs = val_imgs.to(self.device)
+                    val_c = val_c.to(self.device)
+
+                    if self.args.gan_use_cvq:
+                        val_c = self.vq_wrapper.c_encode(val_c)
+                        val_c = val_c.view(val_c.shape[0], -1)
+
+                    z = torch.randn(val_imgs.shape[0], self.args.latent_dim, device=self.device)
+                    gen_latents = self.generator(z, val_c)
+                    gen_imgs = self.vq_wrapper.decode(gen_latents).clamp(0, 1)
+
+                    recon_latents = self.vq_wrapper.encode(val_imgs)
+                    recon_imgs = self.vq_wrapper.decode(recon_latents).clamp(0, 1)
+
+                    l1_loss = F.l1_loss(gen_imgs, recon_imgs)
+                    val_l1_losses.append(l1_loss.item())
+
+            val_l1_avg = sum(val_l1_losses) / len(val_l1_losses)
+            print(val_l1_avg)
+            self.losses['val_l1_loss'].append(val_l1_avg)
+
             np.save(os.path.join(self.results_dir, "loss.npy"), np.array([self.losses[k] for k in self.losses]))
 
             if epoch % self.args.gan_sample_interval == 0:
-                # Plot losses
+                # Plot log-scaled losses (log(1 + loss))
                 plt.figure(figsize=(10, 5))
-                plt.plot(self.losses['epochs'], self.losses['train_d_loss'], label='Train D Loss')
-                plt.plot(self.losses['epochs'], self.losses['train_g_loss'], label='Train G Loss')
+                plt.plot(self.losses['epochs'], np.log1p(np.abs(self.losses['train_d_loss'])), label='Train D Loss (log |abs|)')
+                plt.plot(self.losses['epochs'], np.log1p(np.abs(self.losses['train_g_loss'])), label='Train G Loss (log |abs|)')
+                plt.plot(self.losses['epochs'], np.log1p(self.losses['val_l1_loss']), label='Val L1 Loss (log)')
                 plt.xlabel('Epochs')
-                plt.ylabel('Loss')
-                plt.title('WGAN-GP Training Loss')
+                plt.ylabel('log(1 + |Loss|)')
+                plt.title('WGAN-GP Log-Scaled Losses')
                 plt.legend()
                 plt.grid(True)
-                plt.savefig(os.path.join(self.results_dir, "loss.png"), dpi=300, bbox_inches="tight", transparent=True)
+                plt.savefig(os.path.join(self.results_dir, "log_loss.png"), dpi=300, bbox_inches="tight", transparent=True)
                 plt.close()
 
-                # Save triplet grid: original / reconstructed / generated
                 self.generator.eval()
                 self.vq_wrapper.eval()
 
@@ -119,7 +164,7 @@ class TrainWGAN_GP:
                     sample_imgs, sample_c = next(iter(dataloader))
                     sample_imgs = sample_imgs.to(self.device)
                     sample_c = sample_c.to(self.device)
-                    if args.gan_use_cvq:
+                    if self.args.gan_use_cvq:
                         sample_c = self.vq_wrapper.c_encode(sample_c)
                         sample_c = sample_c.view(sample_c.shape[0], -1)
 
@@ -134,14 +179,20 @@ class TrainWGAN_GP:
                     grid = make_grid(triplets, nrow=sample_imgs.size(0), normalize=True, scale_each=True)
                     save_image(grid, os.path.join(self.results_dir, f"epoch_{epoch}_triplet.png"))
 
-                self.generator.train()
-                self.vq_wrapper.train()
-
+                # Conditional checkpointing + early stopping
                 if self.args.save_model:
-                    torch.save(self.generator.state_dict(), os.path.join(self.checkpoints_dir, "generator.pt"))
-                    torch.save(self.discriminator.state_dict(), os.path.join(self.checkpoints_dir, "discriminator.pt"))
+                    if not self.args.gan_min_validation or val_l1_avg < self.best_val_l1:
+                        self.best_val_l1 = min(self.best_val_l1, val_l1_avg)
+                        tqdm.write(f"WGAN-GP checkpoint saved at epoch {epoch}.")
+                        torch.save(self.generator.state_dict(), os.path.join(self.checkpoints_dir, "generator.pt"))
+                        torch.save(self.discriminator.state_dict(), os.path.join(self.checkpoints_dir, "discriminator.pt"))
+                    elif self.args.early_stop:
+                        print(f"Early stopping at epoch {epoch} due to no val loss improvement...")
+                        break
 
-        # Final checkpoint
+            self.generator.train()
+            self.vq_wrapper.train()
+
         torch.save(self.generator.state_dict(), os.path.join(self.checkpoints_dir, "generator_final.pt"))
         torch.save(self.discriminator.state_dict(), os.path.join(self.checkpoints_dir, "discriminator_final.pt"))
 
