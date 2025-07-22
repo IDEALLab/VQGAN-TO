@@ -1,9 +1,9 @@
 #!/bin/bash
-# Script to submit multiple VQGAN/CVQGAN/Transformer/WGAN-GP training jobs with different configurations
+# Script to submit multiple VQGAN/CVQGAN/Transformer/DCGAN training jobs with different configurations
 # and then submit evaluation jobs after each training job completes
 
 function print_usage() {
-    echo "Usage: bash batch_submit_with_transformer.sh [options]"
+    echo "Usage: bash batch_submit.sh [options]"
     echo ""
     echo "Options:"
     echo "  -c, --configs CONFIG_FILE    Path to configuration file (default: configs.txt)"
@@ -87,8 +87,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     done
 
     if [ "$IS_GAN" = true ]; then
-        PYTHON_SCRIPT="training_wgan_gp.py"
-        JOB_TYPE="wgan_gp"
+        PYTHON_SCRIPT="training_dcgan.py"
+        JOB_TYPE="dcgan"
     elif [ "$IS_TRANSFORMER" = true ]; then
         PYTHON_SCRIPT="training_transformer.py"
         JOB_TYPE="transformer"
@@ -124,7 +124,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         if [ -f "$SAVE_DIR/training_status.txt" ] && grep -q "Training completed successfully" "$SAVE_DIR/training_status.txt"; then
             if [ "$EVAL_EXISTS" = false ] || [ "$FORCE" = true ]; then
                 if [ "$IS_GAN" = true ]; then
-                    EVAL_PY_SCRIPT="eval_wgan_gp.py"
+                    EVAL_PY_SCRIPT="eval_dcgan.py"
                     EVAL_ARG="--gan_name \$runname --is_gan True"
                 elif [ "$IS_TRANSFORMER" = true ]; then
                     EVAL_PY_SCRIPT="eval_transformer.py"
@@ -230,7 +230,7 @@ EOL
     echo "Training job submitted with ID $TRAIN_JOB_ID"
 
     if [ "$IS_GAN" = true ]; then
-        EVAL_PY_SCRIPT="eval_wgan_gp.py"
+        EVAL_PY_SCRIPT="eval_dcgan.py"
         EVAL_ARG="--gan_name \$runname --is_gan True"
     elif [ "$IS_TRANSFORMER" = true ]; then
         EVAL_PY_SCRIPT="eval_transformer.py"

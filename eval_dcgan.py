@@ -5,7 +5,7 @@ from tqdm import tqdm
 import seaborn as sns
 from scipy.ndimage import label
 
-from wgan_gp import Generator, VQGANLatentWrapper
+from dcgan import Generator, VQGANLatentWrapper
 from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv
 from args import get_args, load_args, print_args
 
