@@ -46,6 +46,75 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+########################
+### WARM START UTILS ###
+########################
+
+def gamma_to_tensor(gamma):
+    gamma_field1 = np.reshape(gamma[0:64000], (400, 160))
+    gamma_field2 = np.reshape(gamma[64000:80000], (400, 40))
+    gamma_field = np.concatenate((gamma_field1, gamma_field2), axis=1)
+    gamma_field_full = np.flipud(np.concatenate((gamma_field, np.flip(gamma_field, 1)), axis=1))
+    return gamma_field_full
+
+def tensor_to_gamma(tensor):
+    gamma_field_full = np.flipud(tensor)
+    gamma_field = np.split(gamma_field_full, 2, axis=1)[0]
+    gamma_field1, gamma_field2 = np.split(gamma_field, [160], axis=1)
+
+    gamma_field1 = gamma_field1.flatten()
+    gamma_field2 = gamma_field2.flatten()
+    return np.concatenate([gamma_field1, gamma_field2])
+
+def read_gamma(path):
+    de1 = '86400\n(\n'
+    de2 = '\n)\n'
+    with open(path, 'r') as f:
+        file_content = f.read()
+
+    # Normalize line endings to Unix-style
+    file_content = file_content.replace('\r\n', '\n').replace('\r', '\n')
+
+    if de1 not in file_content or de2 not in file_content:
+        raise ValueError(f"Invalid gamma format or corrupted file at: {path}")
+
+    head, body = file_content.split(de1)
+    body, tail = body.split(de2)
+    return head, body, tail
+    
+def gamma_to_npy(path):
+    _, field, _ = read_gamma(path)
+    gamma = np.asarray(field.split('\n'), dtype=float)
+    tensor = gamma_to_tensor(gamma)
+    return tensor
+
+def npy_to_gamma(tensor, path, name='gamma', template='../data/gamma_template'): # tensor shape (h, w) = (400, 400)
+    de1 = '86400\n(\n'
+    de2 = '\n)\n'
+    if template is None:
+        template_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'templates'
+        )
+        template = os.path.join(template_path, 'gamma_template')
+    head, field, tail = read_gamma(template) # location    "1922";
+    head = head.replace('location    "200";', 'location    "0";')
+    gamma = np.asarray(field.split('\n'), dtype=float)
+    gamma[:80000] = tensor_to_gamma(tensor)
+
+    os.makedirs(path, exist_ok=True)
+    np.savetxt(
+        os.path.join(path, name), 
+        gamma, '%.2e', 
+        header=''.join([head, de1[:-1]]), 
+        footer=''.join([de2[1:], tail]),
+        comments=''
+        )
+
+########################
+### WARM START UTILS ###
+########################
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -104,6 +173,46 @@ def load_data(args, train_data, val_data, test_data, g):
     val_loader = DataLoader(val_data, shuffle=False, generator=g, **common_kwargs) if val_data is not None else None
 
     return train_loader, val_loader, test_loader
+
+def get_data_split_indices(args, use_val_split=False):
+    """
+    Return train/val/test indices corresponding to the original dataset,
+    matching the behavior of torch.utils.data.random_split with a fixed seed.
+    """
+    # Load dataset size
+    if args.is_c:
+        c = np.load(args.conditions_path).astype(np.float32)
+        dataset_length = len(c)
+    else:
+        x = np.load(args.dataset_path).astype(np.float32)
+        dataset_length = len(x)
+
+    generator = torch.Generator().manual_seed(args.seed)
+
+    # Generate the shuffled indices
+    shuffled_indices = torch.randperm(dataset_length, generator=generator).tolist()
+
+    if use_val_split:
+        train_len = int(0.75 * dataset_length)
+        val_len = int(args.val_fraction * dataset_length)
+        test_len = dataset_length - train_len - val_len
+
+        train_indices = shuffled_indices[:train_len]
+        val_indices = shuffled_indices[train_len:train_len + val_len]
+        test_indices = shuffled_indices[train_len + val_len:]
+
+        if args.is_t and args.train_samples < train_len:
+            train_indices = train_indices[-args.train_samples:]
+
+        return train_indices, val_indices, test_indices
+    else:
+        train_len = int(0.75 * dataset_length)
+        test_len = dataset_length - train_len
+
+        train_indices = shuffled_indices[:train_len]
+        test_indices = shuffled_indices[train_len:]
+
+        return train_indices, None, test_indices
 
 
 # Did not exist in original code (not conditional)

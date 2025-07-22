@@ -7,7 +7,7 @@ import seaborn as sns
 from scipy.ndimage import label
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv
+from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
 from args import get_args, load_args, print_args
 
 
@@ -33,7 +33,9 @@ class EvalTransformer:
         self.evaluate(args)
 
     def evaluate(self, args):
-        (dataloader, _, test_dataloader), means, stds = get_data(args, use_val_split=True)
+        (dataloader, _, test_dataloader), _, _ = get_data(args, use_val_split=True)
+        _, _, test_indices = get_data_split_indices(args, use_val_split=True)
+        orig_indices = np.load("../data/new/nonv/index_5666.npy")
         
         # from torch.utils.data import Subset, DataLoader
         # dataloader = DataLoader(
@@ -60,9 +62,6 @@ class EvalTransformer:
         solid_counts = []
         fluid_counts = []
         solid_counts_real = []
-        
-        vf_mean = means[2]
-        vf_std = stds[2]
 
         all_generated = []
         all_real_eval = []
@@ -71,7 +70,8 @@ class EvalTransformer:
         print("Loading training data for evaluation...")
         with torch.no_grad():
             for i, (imgs, cond) in enumerate(dataloader):
-                imgs = imgs.to(args.device, non_blocking=True).cpu().numpy()
+                imgs = imgs.to(args.device, non_blocking=True)
+                imgs = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
                 all_real_train.append(imgs)
         print("Completed loading training data for evaluation.")
 
@@ -87,17 +87,22 @@ class EvalTransformer:
 
                 # Generate full samples
                 logs, _ = self.model.log_images(imgs, cond, top_k=None, greedy=False)
-                full_sample = logs["full_sample"].clamp(0, 1).cpu().numpy()
-                recon = logs["rec"].clamp(0, 1).cpu().numpy()
-                original = imgs.cpu().numpy()
+                full_sample = mirror(logs["full_sample"], reshape=(400, 400)).clamp(0, 1).cpu().numpy()
+                recon = mirror(logs["rec"], reshape=(400, 400)).clamp(0, 1).cpu().numpy()
+                original = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
+                for j in range(full_sample.shape[0]):
+                    test_index = i * args.batch_size + j
+                    original_index = orig_indices[test_indices[test_index]]
+                    gamma_tensor = full_sample[j, 0]
+                    npy_to_gamma(gamma_tensor, path=self.results_dir, name=f"gamma_{original_index}")
+
 
                 all_generated.append(full_sample)
                 all_real_eval.append(original)
 
                 # Compute VFs and MAE
                 gen_vfs = full_sample.reshape(full_sample.shape[0], -1).mean(axis=1)
-                ref_vfs_normalized = cond[:, 2].cpu().numpy()
-                ref_vfs = ref_vfs_normalized * vf_std + vf_mean
+                ref_vfs = original.reshape(full_sample.shape[0], -1).mean(axis=1)
 
                 mae = np.abs(gen_vfs - ref_vfs)
                 all_volume_mae.extend(mae)
@@ -182,8 +187,9 @@ class EvalTransformer:
             "sse": sse
         }
         
-        np.save(os.path.join(self.results_dir, "samples.npy"), all_samples)
-        np.save(os.path.join(self.results_dir, "indices.npy"), all_indices)
+        np.save(os.path.join(self.eval_dir, "test_indices.npy"), np.array(test_indices))
+        np.save(os.path.join(self.eval_dir, "samples.npy"), all_samples)
+        np.save(os.path.join(self.eval_dir, "indices.npy"), all_indices)
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 
 
