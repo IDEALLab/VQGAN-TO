@@ -131,36 +131,16 @@ class EvalTransformer:
                 indices = indices.cpu().numpy().reshape(-1,1,16,16)
                 gen_indices = gen_indices.cpu().numpy().reshape(-1,1,16,16)
 
-                for j in range(len(imgs)):
-                    combined = np.stack([original[j], recon[j], full_sample[j]])
-                    fname = os.path.join(self.results_dir, f"sample_{i*args.batch_size + j}.png")
-                    plot_data(
-                        combined,
-                        titles=["Real", "Reconstruction", "Generated"],
-                        ranges=[[0, 1]] * 3,
-                        fname=fname,
-                        cbar=False,
-                        dpi=400,
-                        mirror_image=True,
-                        cmap=sns.color_palette("viridis", as_cmap=True), 
-                        fontsize=20
-                    )
+                # Append combined images and indices for later saving
+                combined = np.stack([original, recon, full_sample], axis=1)
+                idx_combined = np.stack([indices, gen_indices], axis=1)
 
-                    idx_combined = np.stack([indices[j].astype(np.float32), gen_indices[j].astype(np.float32)])
-                    idx_fname = os.path.join(self.results_dir, f"indices_{i*args.batch_size + j}.png")
-                    plot_data(
-                        idx_combined,
-                        titles=["VQGAN Indices", "Predicted Indices"],
-                        ranges=[[np.min(indices), np.max(indices)]] * 2,
-                        fname=idx_fname,
-                        cbar=False,
-                        dpi=400,
-                        mirror_image=True,
-                        cmap=sns.color_palette("viridis", as_cmap=True),
-                        fontsize=20,
-                        reshape_size=(64, 32),
-                        mode="nearest"
-                    )
+                if i == 0:
+                    all_samples = combined
+                    all_indices = idx_combined
+                else:
+                    all_samples = np.concatenate([all_samples, combined], axis=0)
+                    all_indices = np.concatenate([all_indices, idx_combined], axis=0)
 
         # Save full generated samples
         all_generated = np.concatenate(all_generated, axis=0)
@@ -201,6 +181,9 @@ class EvalTransformer:
             "r_div": r_div,
             "sse": sse
         }
+        
+        np.save(os.path.join(self.results_dir, "samples.npy"), all_samples)
+        np.save(os.path.join(self.results_dir, "indices.npy"), all_indices)
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 
 
