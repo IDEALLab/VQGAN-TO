@@ -289,7 +289,7 @@
 
 #########################
 
-1_dcgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,gan_g_learning_rate=0.0001,gan_d_learning_rate=0.0002,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
-1_dcgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,gan_g_learning_rate=0.0001,gan_d_learning_rate=0.0002,beta1=0.5,beta2=0.999,latent_dim=64,early_stop=false
+1_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
+1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=64,early_stop=false
 
 #########################

@@ -105,15 +105,17 @@ def get_args():
     parser.add_argument('--c_num_codebook_vectors', type=int, default=64)
     parser.add_argument('--c_fmap_dim', type=int, default=4)
 
-    # DCGAN
+    # WGAN-GP
     parser.add_argument('--is_gan', type=str2bool, default=False)
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
+    parser.add_argument("--n_critic", type=int, default=10, help="number of training steps for discriminator per iter")
+    parser.add_argument("--lambda_gp", type=float, default=10.0)
     parser.add_argument('--gan_min_validation', type=str2bool, default=False)
     parser.add_argument("--gan_sample_interval", type=int, default=10, help="interval betwen image samples")
     parser.add_argument('--gan_name', type=str, default="dcgan_baseline")
     parser.add_argument('--gan_use_cvq', type=str2bool, default=True)
-    parser.add_argument('--gan_g_learning_rate', type=float, default=2e-4)
-    parser.add_argument('--gan_d_learning_rate', type=float, default=2e-4)
+    parser.add_argument('--gan_g_learning_rate', type=float, default=2e-3)
+    parser.add_argument('--gan_d_learning_rate', type=float, default=2e-3)
 
     args, _ = parser.parse_known_args()
 

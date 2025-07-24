@@ -8,12 +8,12 @@ import torch.nn.functional as F
 from torchvision.utils import save_image, make_grid
 from lpips import GreyscaleLPIPS
 
-from dcgan import Generator, Discriminator, VQGANLatentWrapper
+from wgan_gp import Generator, Discriminator, compute_gradient_penalty, VQGANLatentWrapper
 from utils import get_data, set_precision, set_all_seeds
 from args import get_args, print_args, save_args
 
 
-class TrainDCGAN:
+class TrainWGAN_GP:
     def __init__(self, args):
         set_precision()
         set_all_seeds(args.seed)
@@ -24,9 +24,6 @@ class TrainDCGAN:
         self.generator = Generator(args).to(self.device)
         self.discriminator = Discriminator(args).to(self.device)
         self.vq_wrapper = VQGANLatentWrapper(args).to(self.device)
-
-        torch.nn.utils.clip_grad_norm_(self.generator.parameters(), max_norm=1.0)
-        torch.nn.utils.clip_grad_norm_(self.discriminator.parameters(), max_norm=1.0)
 
         self.optimizer_G = torch.optim.Adam(
             self.generator.parameters(), lr=args.gan_g_learning_rate, betas=(args.beta1, args.beta2)
@@ -56,11 +53,7 @@ class TrainDCGAN:
 
     def train(self):
         lpips = GreyscaleLPIPS().to(self.device)
-        criterion = nn.BCEWithLogitsLoss()
         (dataloader, val_dataloader, _), means, stds = get_data(self.args, use_val_split=True)
-
-        real_label = 1.0
-        fake_label = 0.0
 
         for epoch in tqdm(range(self.args.epochs)):
             train_d_losses, train_g_losses = [], []
@@ -78,70 +71,64 @@ class TrainDCGAN:
                 # Get real image reconstructions for comparison
                 recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
 
-                # Create labels
-                label_real = torch.full((batch_size,), real_label, dtype=torch.float, device=self.device)
-                label_fake = torch.full((batch_size,), fake_label, dtype=torch.float, device=self.device)
-
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 ###########################
                 self.optimizer_D.zero_grad()
-
-                # Train with real
-                output_real = self.discriminator(real_latents, c).view(-1)
-                d_loss_real = criterion(output_real, label_real)
-                d_loss_real.backward()
-
-                # Train with fake
-                z = torch.randn(batch_size, self.args.latent_dim, device=self.device)
+                z = torch.randn(imgs.shape[0], self.args.latent_dim, device=self.device)
                 fake_latents = self.generator(z, c)
-                output_fake = self.discriminator(fake_latents.detach(), c).view(-1)
-                d_loss_fake = criterion(output_fake, label_fake)
-                d_loss_fake.backward()
 
-                # Update D
-                d_loss = d_loss_real + d_loss_fake
+                real_validity = self.discriminator(real_latents, c)
+                fake_validity = self.discriminator(fake_latents, c)
+                gp = compute_gradient_penalty(self.discriminator, real_latents, fake_latents, c, self.device)
+
+                d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + self.args.lambda_gp * gp
+                d_loss.backward()
                 self.optimizer_D.step()
                 train_d_losses.append(d_loss.item())
 
                 ############################
-                # (2) Update G network: maximize log(D(G(z)))
+                # (2) Update G network
                 ###########################
-                self.optimizer_G.zero_grad()
+                # Train Generator every n_critic steps
+                if i % self.args.n_critic == 0:
+                    self.optimizer_G.zero_grad()
 
-                # Since D was just updated, we need to recompute D(G(z))
-                output_fake = self.discriminator(fake_latents, c).view(-1)
-                g_loss = criterion(output_fake, label_real)  # Fake labels are real for generator cost
+                    z = torch.randn(imgs.shape[0], self.args.latent_dim, device=self.device)
+                    gen_latents = self.generator(z, c)
+                    fake_validity = self.discriminator(gen_latents, c)
 
-                real_mean, real_std = real_latents.mean(dim=[2, 3]), real_latents.std(dim=[2, 3])
-                fake_mean, fake_std = fake_latents.mean(dim=[2, 3]), fake_latents.std(dim=[2, 3])
+                    # Decode generated latents to images
+                    gen_imgs = self.vq_wrapper.decode(gen_latents).clamp(0, 1)
 
-                # Decode generated latents to images
-                gen_imgs = self.vq_wrapper.decode(fake_latents).clamp(0, 1)
+                    # Base generator loss
+                    g_loss = -torch.mean(fake_validity)
 
-                # Compute auxiliary losses (kept as comments)
-                perceptual_loss = lpips(recon_imgs, gen_imgs).mean()
-                recon_loss = F.l1_loss(recon_imgs, gen_imgs)
-                vf_loss = torch.abs(recon_imgs.mean() - gen_imgs.mean())
-                intermediate_loss = (0.25 - ((gen_imgs - 0.5) ** 2)).mean()
-                dist_loss = F.l1_loss(fake_mean, real_mean) + F.l1_loss(fake_std, real_std)
+                    # Compute auxiliary losses (kept as comments)
+                    # perceptual_loss = lpips(recon_imgs, gen_imgs).mean()
+                    # recon_loss = F.l1_loss(recon_imgs, gen_imgs)
+                    # vf_loss = torch.abs(recon_imgs.mean() - gen_imgs.mean())
+                    # intermediate_loss = (0.25 - ((gen_imgs - 0.5) ** 2)).mean()
+                    # real_mean, real_std = real_latents.mean(dim=[2, 3]), real_latents.std(dim=[2, 3])
+                    # fake_mean, fake_std = gen_latents.mean(dim=[2, 3]), gen_latents.std(dim=[2, 3])
+                    # dist_loss = F.l1_loss(fake_mean, real_mean) + F.l1_loss(fake_std, real_std)
 
-                # Generator loss: adversarial + auxiliary
-                print(f"g_loss: {g_loss.item()}")
-                print(f"recon_loss: {recon_loss.item()}")
-                print(f"perceptual_loss: {perceptual_loss.item()}")
-                print(f"vf_loss: {vf_loss.item()}")
-                print(f"intermediate_loss: {intermediate_loss.item()}")
-                print(f"dist_loss: {dist_loss.item()}\n\n")
-                g_loss += 1e0 * recon_loss
-                g_loss += 1e1 * perceptual_loss
-                g_loss += 1e1 * vf_loss
-                g_loss += 1e0 * intermediate_loss
-                g_loss += 1e0 * dist_loss
+                    # Generator loss: adversarial + auxiliary
+                    # print(f"g_loss: {g_loss.item()}")
+                    # print(f"recon_loss: {recon_loss.item()}")
+                    # print(f"perceptual_loss: {perceptual_loss.item()}")
+                    # print(f"vf_loss: {vf_loss.item()}")
+                    # print(f"intermediate_loss: {intermediate_loss.item()}")
+                    # print(f"dist_loss: {dist_loss.item()}\n\n")
+                    # g_loss += 1e0 * recon_loss
+                    # g_loss += 1e1 * perceptual_loss
+                    # g_loss += 1e1 * vf_loss
+                    # g_loss += 1e1 * intermediate_loss
+                    # g_loss += 1e0 * dist_loss
 
-                g_loss.backward()
-                self.optimizer_G.step()
-                train_g_losses.append(g_loss.item())
+                    g_loss.backward()
+                    self.optimizer_G.step()
+                    train_g_losses.append(g_loss.item())
 
             # Log average losses
             train_d_avg = sum(train_d_losses) / len(train_d_losses)
@@ -188,7 +175,7 @@ class TrainDCGAN:
                 plt.plot(self.losses['epochs'], np.log1p(self.losses['val_l1_loss']), label='Val L1 Loss (log)')
                 plt.xlabel('Epochs')
                 plt.ylabel('log(1 + |Loss|)')
-                plt.title('DCGAN Log-Scaled Losses')
+                plt.title('WGAN-GP Log-Scaled Losses')
                 plt.legend()
                 plt.grid(True)
                 plt.savefig(os.path.join(self.results_dir, "log_loss.png"), dpi=300, bbox_inches="tight", transparent=True)
@@ -220,7 +207,7 @@ class TrainDCGAN:
                 if self.args.save_model:
                     if not self.args.gan_min_validation or val_l1_avg < self.best_val_l1:
                         self.best_val_l1 = min(self.best_val_l1, val_l1_avg)
-                        tqdm.write(f"DCGAN checkpoint saved at epoch {epoch}.")
+                        tqdm.write(f"WGAN-GP checkpoint saved at epoch {epoch}.")
                         torch.save(self.generator.state_dict(), os.path.join(self.checkpoints_dir, "generator.pt"))
                         torch.save(self.discriminator.state_dict(), os.path.join(self.checkpoints_dir, "discriminator.pt"))
                     elif self.args.early_stop:
@@ -238,4 +225,4 @@ if __name__ == '__main__':
     args = get_args()
     print_args(args, title="Training Arguments")
     save_args(args)
-    train_dcgan = TrainDCGAN(args)
+    train_wgan_gp = TrainWGAN_GP(args)
