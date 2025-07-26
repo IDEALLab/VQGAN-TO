@@ -37,6 +37,14 @@ class EvalTransformer:
         _, _, test_indices = get_data_split_indices(args, use_val_split=True)
         orig_indices = np.load("../data/new/nonv/index_5666.npy")
         
+        # Check if test_gammas directory exists and is nonempty
+        test_gammas_dir = "../data/test_gammas/"
+        if not os.path.exists(test_gammas_dir) or len(os.listdir(test_gammas_dir)) == 0:
+            os.makedirs(test_gammas_dir, exist_ok=True)
+            print("Creating test_gammas directory and converting test set...")
+            self._create_test_gammas(test_dataloader, test_indices, orig_indices, test_gammas_dir, args)
+            print("Completed creating test_gammas.")
+        
         # from torch.utils.data import Subset, DataLoader
         # dataloader = DataLoader(
         #     Subset(dataloader.dataset, range(16)),
@@ -191,6 +199,19 @@ class EvalTransformer:
         np.save(os.path.join(self.eval_dir, "samples.npy"), all_samples)
         np.save(os.path.join(self.eval_dir, "indices.npy"), all_indices)
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
+
+    def _create_test_gammas(self, test_dataloader, test_indices, orig_indices, test_gammas_dir, args):
+        """Create gamma files for the test set"""
+        with torch.no_grad():
+            for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Converting test set to gammas")):
+                imgs = imgs.to(args.device, non_blocking=True)
+                original = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
+                
+                for j in range(original.shape[0]):
+                    test_index = i * args.batch_size + j
+                    original_index = orig_indices[test_indices[test_index]]
+                    gamma_tensor = original[j, 0]
+                    npy_to_gamma(gamma_tensor, path=test_gammas_dir, name=f"gamma_{original_index}")
 
 
 if __name__ == '__main__':
