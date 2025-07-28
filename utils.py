@@ -334,16 +334,16 @@ def load_vqgan(args):
 # METRICS #
 ###########
 
-def generate_pareto(data, sense=["max", "min"]):
+def generate_pareto(data, sense=["min", "min"]):
     return paretoset(data, sense=sense)
 
-def scale_pareto(data, pG, pB, sense=["max", "min"]):
+def scale_pareto(data, pG, pB, sense=["min", "min"]):
     for i in range(data.shape[1]):
         multi = (1 if sense[i] == "min" else -1)
         data[:, i] = (data[:, i] - pG[i])/(multi*(pB[i] - pG[i])) - 0.5*(multi - 1)
     return data
 
-def HD(pareto, sense=["max", "min"]):
+def HD(pareto, sense=["min", "min"]):
     if (not "min" in sense) or (not "max" in sense):
         p1 = [0,1]
         p2 = [1,0]
