@@ -25,7 +25,20 @@ class TrainVQGAN:
         else:
             self.perceptual_loss = (GreyscaleLPIPS() if args.use_greyscale_lpips else LPIPS()).eval().to(device=args.device)
         self.opt_vq, self.opt_disc = self.configure_optimizers(args)
-        self.log_losses = {'epochs': [], 'd_loss_avg': [], 'g_loss_avg': [], 'val_loss_avg': []}
+
+        self.log_losses = {
+            'epochs': [],
+            'd_loss_avg': [],
+            'g_loss_avg': [],
+            'val_loss_avg': [],
+            'rec_loss_avg': [],
+            'perceptual_loss_avg': [],
+            'q_loss_avg': [],
+            'val_rec_loss_avg': [],
+            'val_perceptual_loss_avg': [],
+            'val_q_loss_avg': [],
+        }
+
         self.log_codebook_usage = {'epochs': [], 'active_vectors': [], 'usage_percentage': [], 'entropy': []}
 
         saves_dir = os.path.join(r"../saves", args.run_name)
@@ -69,6 +82,12 @@ class TrainVQGAN:
             epoch_d_losses = []
             epoch_g_losses = []
             val_losses = []
+            epoch_rec_losses = []
+            epoch_percep_losses = []
+            epoch_q_losses = []
+            val_rec_losses = []
+            val_percep_losses = []
+            val_q_losses = []
             epoch_codebook_usage = {}  # Reset codebook usage tracking for each epoch
 
             if epoch == args.DAE_switch_epoch and args.use_DAE:
@@ -117,6 +136,9 @@ class TrainVQGAN:
 
                 epoch_d_losses.append(gan_loss.item())
                 epoch_g_losses.append(vq_loss.item())
+                epoch_rec_losses.append(rec_loss.mean().item())
+                epoch_percep_losses.append(perceptual_loss.mean().item())
+                epoch_q_losses.append(q_loss.item())
 
                 # Log codebook usage statistics of every batch
                 if args.track:
@@ -143,6 +165,9 @@ class TrainVQGAN:
                         perceptual_rec_loss = perceptual_rec_loss.mean()
                         vq_val_loss = perceptual_rec_loss + q_loss
                         val_losses.append(vq_val_loss.item())
+                        val_rec_losses.append(rec_loss.mean().item())
+                        val_percep_losses.append(perceptual_loss.mean().item())
+                        val_q_losses.append(q_loss.item())
                 
                 self.vqgan.train()
                 self.discriminator.train()
@@ -153,6 +178,22 @@ class TrainVQGAN:
                     val_loss_avg = sum(val_losses) / len(val_losses)
                 d_loss_avg = sum(epoch_d_losses) / len(epoch_d_losses)
                 g_loss_avg = sum(epoch_g_losses) / len(epoch_g_losses)
+                rec_loss_avg = np.mean(epoch_rec_losses)
+                percep_loss_avg = np.mean(epoch_percep_losses)
+                q_loss_avg = np.mean(epoch_q_losses)
+
+                self.log_losses['rec_loss_avg'].append(np.log(rec_loss_avg + 1e-8))
+                self.log_losses['perceptual_loss_avg'].append(np.log(percep_loss_avg + 1e-8))
+                self.log_losses['q_loss_avg'].append(np.log(q_loss_avg + 1e-8))
+
+                if args.vq_track_val_loss:
+                    self.log_losses['val_rec_loss_avg'].append(np.log(np.mean(val_rec_losses) + 1e-8))
+                    self.log_losses['val_perceptual_loss_avg'].append(np.log(np.mean(val_percep_losses) + 1e-8))
+                    self.log_losses['val_q_loss_avg'].append(np.log(np.mean(val_q_losses) + 1e-8))
+                else:
+                    self.log_losses['val_rec_loss_avg'].append(None)
+                    self.log_losses['val_perceptual_loss_avg'].append(None)
+                    self.log_losses['val_q_loss_avg'].append(None)
                 
                 # Calculate and track codebook usage statistics for this epoch
                 active_codes = len(epoch_codebook_usage)
@@ -206,6 +247,37 @@ class TrainVQGAN:
                     loss_fname = os.path.join(self.results_dir, "log_loss.png")
                     plt.savefig(loss_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
                     plt.close()
+
+                    # Plot separated generator loss components - TRAIN
+                    plt.figure(figsize=(10, 6))
+                    epochs = self.log_losses['epochs']
+                    plt.plot(epochs, self.log_losses['rec_loss_avg'], label='rec_loss')
+                    plt.plot(epochs, self.log_losses['perceptual_loss_avg'], label='perceptual_loss')
+                    plt.plot(epochs, self.log_losses['q_loss_avg'], label='q_loss')
+                    plt.xlabel('Epochs')
+                    plt.ylabel('Log Loss')
+                    plt.title('Train Generator Losses')
+                    plt.legend()
+                    plt.grid(True)
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(self.results_dir, "train_g_losses.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
+                    plt.close()
+
+                    # Plot separated generator loss components - VAL
+                    if args.vq_track_val_loss:
+                        plt.figure(figsize=(10, 6))
+                        valid_epochs = self.log_losses['epochs']
+                        plt.plot(valid_epochs, [v for v in self.log_losses['val_rec_loss_avg'] if v is not None], label='rec_loss')
+                        plt.plot(valid_epochs, [v for v in self.log_losses['val_perceptual_loss_avg'] if v is not None], label='perceptual_loss')
+                        plt.plot(valid_epochs, [v for v in self.log_losses['val_q_loss_avg'] if v is not None], label='q_loss')
+                        plt.xlabel('Epochs')
+                        plt.ylabel('Log Loss')
+                        plt.title('Validation Generator Losses')
+                        plt.legend()
+                        plt.grid(True)
+                        plt.tight_layout()
+                        plt.savefig(os.path.join(self.results_dir, "val_g_losses.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
+                        plt.close()
                     
                     # Codebook always uses a lot of vectors first epoch, massively decreases second epoch --> Only plot after skipping the first epoch
                     if len(self.log_codebook_usage['epochs']) > 1:
@@ -238,7 +310,7 @@ class TrainVQGAN:
                         plt.savefig(entropy_fname, format="png", dpi=300, bbox_inches="tight", transparent=True)
                         plt.close()
                     
-                    np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
+                    np.savez(os.path.join(self.results_dir, "log_loss.npz"), **self.log_losses)
                     np.save(os.path.join(self.results_dir, "codebook_usage.npy"), np.array([self.log_codebook_usage[k] for k in self.log_codebook_usage]))
 
                     # Save sample images from the current epoch

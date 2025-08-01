@@ -293,3 +293,9 @@
 1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=64,early_stop=false
 
 #########################
+
+2_c1:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1
+2_c1_DAE_040:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
+2_c1_online:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+2_c1_online_151:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=151,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
+2_c1_online_122:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=122,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
