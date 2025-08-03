@@ -44,6 +44,14 @@ class EvalTransformer:
             print("Creating test_gammas directory and converting test set...")
             self._create_test_gammas(test_dataloader, test_indices, orig_indices, test_gammas_dir, args)
             print("Completed creating test_gammas.")
+
+        # Check if test_gammas_rounded directory exists and is nonempty
+        test_gammas_rounded_dir = "../data/test_gammas_rounded/"
+        if not os.path.exists(test_gammas_rounded_dir) or len(os.listdir(test_gammas_rounded_dir)) == 0:
+            os.makedirs(test_gammas_rounded_dir, exist_ok=True)
+            print("Creating test_gammas_rounded directory and converting thresholded test set...")
+            self._create_test_gammas(test_dataloader, test_indices, orig_indices, test_gammas_rounded_dir, args, round_output=True)
+            print("Completed creating test_gammas_rounded.")
         
         # from torch.utils.data import Subset, DataLoader
         # dataloader = DataLoader(
@@ -103,7 +111,6 @@ class EvalTransformer:
                     original_index = orig_indices[test_indices[test_index]]
                     gamma_tensor = full_sample[j, 0]
                     npy_to_gamma(gamma_tensor, path=self.results_dir, name=f"gamma_{original_index}")
-
 
                 all_generated.append(full_sample)
                 all_real_eval.append(original)
@@ -200,12 +207,14 @@ class EvalTransformer:
         np.save(os.path.join(self.eval_dir, "indices.npy"), all_indices)
         np.save(os.path.join(self.eval_dir, "metrics.npy"), metrics)
 
-    def _create_test_gammas(self, test_dataloader, test_indices, orig_indices, test_gammas_dir, args):
+    def _create_test_gammas(self, test_dataloader, test_indices, orig_indices, test_gammas_dir, args, round_output=False):
         """Create gamma files for the test set"""
         with torch.no_grad():
             for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Converting test set to gammas")):
                 imgs = imgs.to(args.device, non_blocking=True)
                 original = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
+                if round_output:
+                    original = (original > 0.5).astype(np.uint8)
                 
                 for j in range(original.shape[0]):
                     test_index = i * args.batch_size + j

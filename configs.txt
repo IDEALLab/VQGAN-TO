@@ -279,6 +279,7 @@
 
 #########################
 
+1_Tr_original:val_fraction=0.05,is_t=true,model_name=1_original,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 1_Tr_c1:val_fraction=0.05,is_t=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 1_Tr_c1_DAE_040:val_fraction=0.05,is_t=true,model_name=1_c1_DAE_040,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 1_Tr_c1_online:val_fraction=0.05,is_t=true,model_name=1_c1_online,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
@@ -294,6 +295,7 @@
 
 #########################
 
+2_original:val_fraction=0.05
 2_c1:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1
 2_c1_DAE_040:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
 2_c1_online:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
