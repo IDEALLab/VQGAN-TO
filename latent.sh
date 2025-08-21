@@ -1,6 +1,6 @@
 #!/bin/bash
-# Usage: bash submit_latent_analysis.sh <model_name>
-# Example: bash submit_latent_analysis.sh vq_gan_Feb10_15-57-05
+# Usage: bash latent.sh <model_name>
+# Example: bash latent.sh 1_original
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <model_name>"

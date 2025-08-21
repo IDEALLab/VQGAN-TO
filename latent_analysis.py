@@ -89,7 +89,7 @@ class LatentAnalysis:
         topo_accum = []
         qs_dim = args.latent_dim
         num_alts = 64
-        alts = torch.randint(high=qs_dim, size=(num_alts, 2, 2))
+        alts = torch.randint(high=16, size=(num_alts, 2, 2)) # Assumes B*n_z*16*16 latent space
         num_steps = 100
 
         with torch.no_grad():
