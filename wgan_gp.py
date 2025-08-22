@@ -2,6 +2,7 @@
 # Paper: https://arxiv.org/abs/1704.00028
 
 import torch
+import numpy as np
 import torch.nn as nn
 from torch.nn.utils import spectral_norm
 from copy import deepcopy
@@ -9,6 +10,11 @@ import torch.autograd as autograd
 
 from utils import load_vqgan
 from args import load_args
+
+
+def sn(layer, use_spectral):
+    """Apply spectral norm if enabled."""
+    return spectral_norm(layer) if use_spectral else layer
 
 
 class Generator(nn.Module):
@@ -25,36 +31,34 @@ class Generator(nn.Module):
             cvq_args = load_args(temp_cvq_args)
 
         self.latent_dim = vq_args.latent_dim
-        
-        if args.gan_use_cvq:
-            input_dim = args.latent_dim + cvq_args.c_latent_dim * cvq_args.c_fmap_dim ** 2
-        else:
-            input_dim = args.latent_dim + args.c_input_dim
 
-        # Improved architecture - start with larger spatial size
+        input_dim = args.latent_dim + args.c_transform_dim
+        self.condition_proj = nn.Linear(
+            cvq_args.c_latent_dim * cvq_args.c_fmap_dim ** 2 if args.gan_use_cvq else args.c_input_dim,
+            args.c_transform_dim
+        )
+
         self.init_size = 8  # 8×8 → 16×16
-
-        # More conservative channel reduction
         high = self.latent_dim * 4
         mid = self.latent_dim * 2
 
         self.fc = nn.Linear(input_dim, high * self.init_size ** 2)
 
-        # Improved generator with spectral normalization and better architecture
+        # Generator conv stack
         self.conv_blocks = nn.Sequential(
             nn.BatchNorm2d(high),
-            spectral_norm(nn.Conv2d(high, high, 3, stride=1, padding=1)),
+            sn(nn.Conv2d(high, high, 3, stride=1, padding=1), args.use_spectral),
             nn.BatchNorm2d(high),
             nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.ConvTranspose2d(high, mid, 4, stride=2, padding=1)),
+            sn(nn.ConvTranspose2d(high, mid, 4, stride=2, padding=1), args.use_spectral),
             nn.BatchNorm2d(mid),
             nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(mid, self.latent_dim, 3, stride=1, padding=1)),
+            sn(nn.Conv2d(mid, self.latent_dim, 3, stride=1, padding=1), args.use_spectral),
         )
 
     def forward(self, z, c):
-        x = torch.cat((z, c), dim=1)
-        out = self.fc(x).view(x.size(0), -1, self.init_size, self.init_size)
+        c = self.condition_proj(c)
+        out = self.fc(torch.cat([z, c], dim=1)).view(z.size(0), -1, self.init_size, self.init_size)
         return self.conv_blocks(out)
 
 
@@ -74,42 +78,42 @@ class Discriminator(nn.Module):
             cvq_args = load_args(temp_cvq_args)
 
         in_channels = self.latent_dim + 1
-        
-        # Much stronger discriminator architecture
-        base = self.latent_dim  # Increased from latent_dim // 4
+        base = self.latent_dim  # Stronger discriminator base
 
+        self.c_transform_dim = args.c_transform_dim
         self.condition_proj = nn.Linear(
-            cvq_args.c_latent_dim * cvq_args.c_fmap_dim ** 2 if args.gan_use_cvq else args.c_input_dim, 
-            16 * 16
+            cvq_args.c_latent_dim * cvq_args.c_fmap_dim ** 2 if args.gan_use_cvq else args.c_input_dim,
+            args.c_transform_dim
         )
 
-        # Deeper, more powerful discriminator with spectral normalization
+        # Discriminator conv stack
         self.conv = nn.Sequential(
             # 16x16 -> 8x8
-            spectral_norm(nn.Conv2d(in_channels, base, 4, stride=2, padding=1)),
+            sn(nn.Conv2d(in_channels, base, 4, stride=2, padding=1), args.use_spectral),
             nn.LeakyReLU(0.2, inplace=True),
-            
-            # 8x8 -> 4x4  
-            spectral_norm(nn.Conv2d(base, base * 2, 4, stride=2, padding=1)),
+
+            # 8x8 -> 4x4
+            sn(nn.Conv2d(base, base * 2, 4, stride=2, padding=1), args.use_spectral),
             nn.BatchNorm2d(base * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             # 4x4 -> 2x2
-            spectral_norm(nn.Conv2d(base * 2, base * 4, 4, stride=2, padding=1)),
+            sn(nn.Conv2d(base * 2, base * 4, 4, stride=2, padding=1), args.use_spectral),
             nn.BatchNorm2d(base * 4),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             # 2x2 -> 1x1
-            spectral_norm(nn.Conv2d(base * 4, base * 8, 4, stride=2, padding=1)),
+            sn(nn.Conv2d(base * 4, base * 8, 4, stride=2, padding=1), args.use_spectral),
             nn.BatchNorm2d(base * 8),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             nn.Flatten(),
-            spectral_norm(nn.Linear(base * 8, 1))
+            sn(nn.Linear(base * 8, 1), args.use_spectral)
         )
 
     def forward(self, z, c):
-        c = self.condition_proj(c).view(z.size(0), 1, 16, 16)
+        size = int(np.sqrt(self.c_transform_dim))
+        c = self.condition_proj(c).view(-1, 1, size, size)
         return self.conv(torch.cat([z, c], dim=1))
 
 
@@ -140,7 +144,7 @@ class VQGANLatentWrapper(nn.Module):
         q = self.vqgan.quant_conv(E)
         z, _, _ = self.vqgan.codebook(q)
         return self.vqgan.decode(z)
-    
+
     @torch.no_grad()
     def c_encode(self, c):
         return self.cvqgan.encoder(c)
@@ -150,6 +154,7 @@ class VQGANLatentWrapper(nn.Module):
         q = self.cvqgan.quant_conv(E)
         c, _, _ = self.cvqgan.codebook(q)
         return self.cvqgan.decode(c)
+
 
 def compute_gradient_penalty(D, real_samples, fake_samples, c, device):
     alpha = torch.rand(real_samples.size(0), 1, 1, 1, device=device)

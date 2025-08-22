@@ -116,6 +116,9 @@ def get_args():
     parser.add_argument('--gan_use_cvq', type=str2bool, default=True)
     parser.add_argument('--gan_g_learning_rate', type=float, default=2e-3)
     parser.add_argument('--gan_d_learning_rate', type=float, default=2e-3)
+    parser.add_argument('--c_transform_dim', type=int, default=256)
+    parser.add_argument("--use_spectral", type=str2bool, default=True)
+
 
     args, _ = parser.parse_known_args()
 

@@ -293,6 +293,18 @@
 1_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
 1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=64,early_stop=false
 
+2_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=256,early_stop=false
+2_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=256,early_stop=false
+
+3_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=1024,early_stop=false
+3_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=1024,early_stop=false
+
+4_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
+4_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
+
+5_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false,use_spectral=false
+5_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false,use_spectral=false
+
 #########################
 
 2_original:val_fraction=0.05
