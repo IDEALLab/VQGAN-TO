@@ -94,17 +94,17 @@ class Discriminator(nn.Module):
 
             # 8x8 -> 4x4
             sn(nn.Conv2d(base, base * 2, 4, stride=2, padding=1), args.use_spectral),
-            nn.BatchNorm2d(base * 2),
+            # nn.BatchNorm2d(base * 2),
             nn.LeakyReLU(0.2, inplace=True),
 
             # 4x4 -> 2x2
             sn(nn.Conv2d(base * 2, base * 4, 4, stride=2, padding=1), args.use_spectral),
-            nn.BatchNorm2d(base * 4),
+            # nn.BatchNorm2d(base * 4),
             nn.LeakyReLU(0.2, inplace=True),
 
             # 2x2 -> 1x1
             sn(nn.Conv2d(base * 4, base * 8, 4, stride=2, padding=1), args.use_spectral),
-            nn.BatchNorm2d(base * 8),
+            # nn.BatchNorm2d(base * 8),
             nn.LeakyReLU(0.2, inplace=True),
 
             nn.Flatten(),
