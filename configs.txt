@@ -296,6 +296,9 @@
 9_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
 9_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
 
+10_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
+10_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
+
 #########################
 
 2_original:val_fraction=0.05

@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch.nn.utils import spectral_norm
 from copy import deepcopy
 import torch.autograd as autograd
+import torch.nn.functional as F
 
 from utils import load_vqgan
 from args import load_args
@@ -15,6 +16,73 @@ from args import load_args
 def sn(layer, use_spectral):
     """Apply spectral norm if enabled."""
     return spectral_norm(layer) if use_spectral else layer
+
+
+# ---------------------------
+# Pre-activation ResNet blocks
+# ---------------------------
+
+class ResBlockG(nn.Module):
+    """
+    Generator pre-activation ResBlock.
+    Two 3x3 convs; if upsample=True, perform nearest-neighbor upsampling BEFORE the 2nd conv.
+    BN only in G (per paper).
+    """
+    def __init__(self, in_ch: int, out_ch: int, upsample: bool = False):
+        super().__init__()
+        self.upsample = upsample
+        self.bn1 = nn.BatchNorm2d(in_ch)
+        self.conv1 = nn.Conv2d(in_ch, out_ch, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_ch)
+        self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1)
+        self.learnable_skip = (in_ch != out_ch) or upsample
+        if self.learnable_skip:
+            self.conv_sc = nn.Conv2d(in_ch, out_ch, 1, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = F.relu(self.bn1(x), inplace=True)
+        out = self.conv1(out)
+        out = F.relu(self.bn2(out), inplace=True)
+        if self.upsample:
+            out = F.interpolate(out, scale_factor=2, mode="nearest")
+        out = self.conv2(out)
+
+        skip = x
+        if self.upsample:
+            skip = F.interpolate(skip, scale_factor=2, mode="nearest")
+        if self.learnable_skip:
+            skip = self.conv_sc(skip)
+        return out + skip
+
+
+class ResBlockD(nn.Module):
+    """
+    Critic pre-activation ResBlock.
+    No normalization. Mean/avg pooling AFTER the 2nd conv when downsample=True.
+    """
+    def __init__(self, in_ch: int, out_ch: int, downsample: bool = False, use_spectral: bool = False):
+        super().__init__()
+        self.downsample = downsample
+        self.conv1 = sn(nn.Conv2d(in_ch,  out_ch, 3, padding=1), use_spectral)
+        self.conv2 = sn(nn.Conv2d(out_ch, out_ch, 3, padding=1), use_spectral)
+        self.learnable_skip = (in_ch != out_ch) or downsample
+        if self.learnable_skip:
+            self.conv_sc = sn(nn.Conv2d(in_ch, out_ch, 1, bias=False), use_spectral)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = F.relu(x, inplace=True)
+        out = self.conv1(out)
+        out = F.relu(out, inplace=True)
+        out = self.conv2(out)
+        if self.downsample:
+            out = F.avg_pool2d(out, 2)
+
+        skip = x
+        if self.downsample:
+            skip = F.avg_pool2d(skip, 2)
+        if self.learnable_skip:
+            skip = self.conv_sc(skip)
+        return out + skip
 
 
 class Generator(nn.Module):
@@ -44,22 +112,19 @@ class Generator(nn.Module):
 
         self.fc = nn.Linear(input_dim, high * self.init_size ** 2)
 
-        # Generator conv stack
-        self.conv_blocks = nn.Sequential(
-            nn.BatchNorm2d(high),
-            sn(nn.Conv2d(high, high, 3, stride=1, padding=1), args.use_spectral),
-            nn.BatchNorm2d(high),
-            nn.LeakyReLU(0.2, inplace=True),
-            sn(nn.ConvTranspose2d(high, mid, 4, stride=2, padding=1), args.use_spectral),
-            nn.BatchNorm2d(mid),
-            nn.LeakyReLU(0.2, inplace=True),
-            sn(nn.Conv2d(mid, self.latent_dim, 3, stride=1, padding=1), args.use_spectral),
-        )
+        # Generator ResNet stack (pre-activation, NN upsampling inside ResBlock)
+        self.block_up = ResBlockG(high, mid, upsample=True)               # 8x8 -> 16x16
+        self.block_refine = ResBlockG(mid, self.latent_dim, upsample=False)
+        self.bn_out = nn.BatchNorm2d(self.latent_dim)
+        self.conv_out = sn(nn.Conv2d(self.latent_dim, self.latent_dim, 3, stride=1, padding=1), args.use_spectral)
 
     def forward(self, z, c):
         c = self.condition_proj(c)
-        out = self.fc(torch.cat([z, c], dim=1)).view(z.size(0), -1, self.init_size, self.init_size)
-        return self.conv_blocks(out)
+        x = self.fc(torch.cat([z, c], dim=1)).view(z.size(0), -1, self.init_size, self.init_size)
+        x = self.block_up(x)
+        x = self.block_refine(x)
+        x = F.relu(self.bn_out(x), inplace=True)
+        return self.conv_out(x)
 
 
 class Discriminator(nn.Module):
@@ -86,35 +151,24 @@ class Discriminator(nn.Module):
             args.c_transform_dim
         )
 
-        # Discriminator conv stack
-        self.conv = nn.Sequential(
-            # 16x16 -> 8x8
-            sn(nn.Conv2d(in_channels, base, 4, stride=2, padding=1), args.use_spectral),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            # 8x8 -> 4x4
-            sn(nn.Conv2d(base, base * 2, 4, stride=2, padding=1), args.use_spectral),
-            # nn.BatchNorm2d(base * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            # 4x4 -> 2x2
-            sn(nn.Conv2d(base * 2, base * 4, 4, stride=2, padding=1), args.use_spectral),
-            # nn.BatchNorm2d(base * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            # 2x2 -> 1x1
-            sn(nn.Conv2d(base * 4, base * 8, 4, stride=2, padding=1), args.use_spectral),
-            # nn.BatchNorm2d(base * 8),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Flatten(),
-            sn(nn.Linear(base * 8, 1), args.use_spectral)
-        )
+        # Discriminator ResNet stack (no norm): two Down blocks + two plain blocks
+        self.b1 = ResBlockD(in_channels, base, downsample=True, use_spectral=args.use_spectral)   # 16x16 -> 8x8
+        self.b2 = ResBlockD(base,        base, downsample=True, use_spectral=args.use_spectral)   # 8x8  -> 4x4
+        self.b3 = ResBlockD(base,        base, downsample=False, use_spectral=args.use_spectral)
+        self.b4 = ResBlockD(base,        base, downsample=False, use_spectral=args.use_spectral)
+        self.lin = sn(nn.Linear(base, 1), args.use_spectral)
 
     def forward(self, z, c):
         size = int(np.sqrt(self.c_transform_dim))
         c = self.condition_proj(c).view(-1, 1, size, size)
-        return self.conv(torch.cat([z, c], dim=1))
+        x = torch.cat([z, c], dim=1)
+        x = self.b1(x)
+        x = self.b2(x)
+        x = self.b3(x)
+        x = self.b4(x)
+        x = F.relu(x, inplace=True)
+        x = x.mean(dim=(2, 3))  # global mean pool
+        return self.lin(x)
 
 
 class VQGANLatentWrapper(nn.Module):
