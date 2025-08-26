@@ -7,6 +7,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
+from torchvision.models import inception_v3, Inception_V3_Weights
+from torchvision.models.feature_extraction import create_feature_extractor
+
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from vqgan import VQGAN
@@ -398,6 +401,149 @@ def MMD(X_gen, X_test):
           np.mean(gaussian_kernel(X_test, X_test, sigma))
           
     return np.sqrt(mmd)
+
+# ---------------------------
+# Inception feature extractor
+# ---------------------------
+@torch.no_grad()
+def compute_inception_features(
+    images_np: np.ndarray,           # shape (N, 1 or 3, H, W), values in [0,1]
+    device: str = None,
+    batch_size: int = 64,
+) -> np.ndarray:                     # returns (N, 2048)
+    """
+    Extract Inception-V3 avgpool (2048-D) features for KID.
+    - Accepts grayscale by repeating to 3 channels.
+    - Resizes to 299x299 and applies ImageNet normalization.
+    """
+    assert images_np.ndim == 4, "Expected images_np of shape (N,C,H,W) in [0,1]"
+    N, C, H, W = images_np.shape
+
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    x = torch.from_numpy(images_np).float().to(device)  # [0,1]
+    if C == 1:
+        x = x.repeat(1, 3, 1, 1)
+
+    # Load weights & get normalization robustly across torchvision versions
+    try:
+        weights = Inception_V3_Weights.IMAGENET1K_V1
+    except Exception:
+        weights = Inception_V3_Weights.DEFAULT
+
+    # Mean and STD of ImageNet for normalization
+    normalize_mean = [0.485, 0.456, 0.406]
+    normalize_std  = [0.229, 0.224, 0.225]
+
+    try:
+        from torchvision.transforms import Normalize
+        tfm = weights.transforms()
+        if hasattr(tfm, "transforms"):
+            for t in tfm.transforms:
+                if isinstance(t, Normalize):
+                    normalize_mean = list(t.mean)
+                    normalize_std  = list(t.std)
+                    break
+        elif hasattr(tfm, "normalize"):
+            normalize_mean = list(tfm.normalize.mean)
+            normalize_std  = list(tfm.normalize.std)
+    except Exception:
+        pass
+
+    mean = torch.tensor(normalize_mean, device=device).view(1, 3, 1, 1)
+    std  = torch.tensor(normalize_std,  device=device).view(1, 3, 1, 1)
+
+    model = inception_v3(weights=weights, aux_logits=True).to(device).eval()
+    extractor = create_feature_extractor(model, return_nodes={"avgpool": "feat"})
+
+    feats = []
+    for i in range(0, N, batch_size):
+        xb = x[i:i+batch_size]
+        xb = F.interpolate(xb, size=(299, 299), mode="bilinear", align_corners=False)
+        xb = (xb - mean) / std
+        out = extractor(xb)["feat"]              # (B, 2048, 1, 1)
+        feats.append(out.flatten(1).cpu().numpy())
+
+    return np.concatenate(feats, axis=0)         # (N, 2048)
+
+# ---------------------------
+# KID core (unbiased MMD^2 with polynomial kernel)
+# ---------------------------
+def _poly_kernel(X: np.ndarray, Y: np.ndarray, degree: int = 3, gamma: float | None = None, coef0: float = 1.0):
+    """
+    Polynomial kernel (used by KID): k(x,y) = (gamma * x^T y + coef0)^degree
+    Default gamma = 1/d, where d is the feature dimension.
+    """
+    d = X.shape[1]
+    if gamma is None:
+        gamma = 1.0 / d
+    return (gamma * (X @ Y.T) + coef0) ** degree
+
+def _mmd2_unbiased_from_kernels(Kxx: np.ndarray, Kyy: np.ndarray, Kxy: np.ndarray) -> float:
+    """
+    Unbiased U-statistic estimate of MMD^2 given kernel matrices.
+    Diagonals are excluded in Kxx and Kyy.
+    """
+    # Work on copies so we can zero diagonals safely if caller reuses matrices.
+    Kxx = Kxx.copy()
+    Kyy = Kyy.copy()
+    np.fill_diagonal(Kxx, 0.0)
+    np.fill_diagonal(Kyy, 0.0)
+    n = Kxx.shape[0]
+    m = Kyy.shape[0]
+    mmd2 = (Kxx.sum() / (n * (n - 1))
+          + Kyy.sum() / (m * (m - 1))
+          - 2.0 * Kxy.mean())
+    return float(max(mmd2, 0.0))  # numerical safety
+
+def KID_from_features(
+    F_gen: np.ndarray,
+    F_real: np.ndarray,
+    n_subsets: int = 100,
+    subset_size: int = 1000,
+    rng: np.random.Generator | None = None,
+) -> tuple[float, float]:
+    """
+    Compute KID as the mean ± std of unbiased MMD^2 across random subsets.
+    Returns (kid_mean, kid_std).
+    """
+    rng = np.random.default_rng() if rng is None else rng
+    n = min(len(F_gen), subset_size)
+    m = min(len(F_real), subset_size)
+    vals = []
+    for _ in range(n_subsets):
+        idx_g = rng.choice(len(F_gen), n, replace=False)
+        idx_r = rng.choice(len(F_real), m, replace=False)
+        X = F_gen[idx_g]
+        Y = F_real[idx_r]
+        Kxx = _poly_kernel(X, X)  # degree=3, gamma=1/d, coef0=1
+        Kyy = _poly_kernel(Y, Y)
+        Kxy = _poly_kernel(X, Y)
+        vals.append(_mmd2_unbiased_from_kernels(Kxx, Kyy, Kxy))
+    vals = np.asarray(vals, dtype=np.float64)
+    return float(vals.mean()), float(vals.std(ddof=1))
+
+# ---------------------------
+# Convenience wrapper: images -> features -> KID
+# ---------------------------
+def KID(
+    X_gen: np.ndarray,   # (N,C,H,W) in [0,1]
+    X_real: np.ndarray,  # (M,C,H,W) in [0,1]
+    device: str | None = None,
+    batch_size: int = 64,
+    n_subsets: int = 100,
+    subset_size: int = 1000,
+    return_std: bool = True,
+):
+    """
+    Computes KID (mean over subsets). Set return_std=True to also get std.
+    """
+    F_gen  = compute_inception_features(X_gen,  device=device, batch_size=batch_size)
+    F_real = compute_inception_features(X_real, device=device, batch_size=batch_size)
+    kid_mean, kid_std = KID_from_features(F_gen, F_real, n_subsets=n_subsets, subset_size=subset_size)
+    return (kid_mean, kid_std) if return_std else kid_mean
+
 
 # Topological distance: absolute value of difference between Betti numbers for summary statistic loss
 def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, reduction='sum', rounding_bias=0, imageops=True, return_pair=False):

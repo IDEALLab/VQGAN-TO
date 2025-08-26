@@ -7,7 +7,7 @@ import seaborn as sns
 from scipy.ndimage import label
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
+from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, KID, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
 from args import get_args, load_args, print_args
 
 
@@ -175,6 +175,8 @@ class EvalTransformer:
         np.save(os.path.join(self.eval_dir, "vfs_mae.npy"), np.array(all_volume_mae))
 
         # Summary metrics
+        print("Calculating KID")
+        (kid, kid_std) = KID(all_generated, all_real_eval, device=args.device)
         print("Calculating MMD")
         mmd = MMD(all_generated, all_real_eval)
         print("Calculating R-Div")
@@ -190,6 +192,7 @@ class EvalTransformer:
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
         print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.6f}")
         print(f"  MMD:                     {mmd:.6f}")
+        print(f"  KID:                     {kid:.6f} with std {kid_std:.6f}")
         print(f"  R-Div:                   {r_div:.6f}")
         print(f"  SSE:                     {sse:.6f}")
 
@@ -198,6 +201,8 @@ class EvalTransformer:
             "volume_fraction_mae": vf_mae,
             "avg_disconnected_fluid_segments": avg_disconnected,
             "mmd": mmd,
+            "kid": kid,
+            "kid_std": kid_std,
             "r_div": r_div,
             "sse": sse
         }

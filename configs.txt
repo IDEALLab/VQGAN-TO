@@ -287,17 +287,10 @@
 1_Tr_c1_online_151:val_fraction=0.05,is_t=true,model_name=1_c1_online_151,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 1_Tr_c1_online_64:val_fraction=0.05,is_t=true,model_name=1_c1_online_64,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 
-
 #########################
 
-1_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.5,beta2=0.999,latent_dim=4096,early_stop=false
-1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.5,beta2=0.999,latent_dim=64,early_stop=false
-
-9_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
-9_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
-
-10_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
-10_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
+1_wgan_c1:val_fraction=0.05,is_gan=true,model_name=1_c1,c_model_name=1_cvq,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
+1_wgan_c1_cont:val_fraction=0.05,is_gan=true,model_name=1_c1_cont,gan_use_cvq=false,epochs=500,beta1=0.0,beta2=0.9,latent_dim=256,early_stop=false,use_spectral=false,gan_g_learning_rate=0.001,gan_d_learning_rate=0.001,n_critic=10
 
 #########################
 
