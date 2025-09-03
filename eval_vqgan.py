@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn.functional as F
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm
@@ -8,6 +9,7 @@ from matplotlib import pyplot as plt
 from lpips import LPIPS, GreyscaleLPIPS
 from utils import get_data, plot_data, load_vqgan, set_precision, set_all_seeds
 from args import get_args, load_args, print_args
+from sklearn.metrics.pairwise import cosine_similarity
 
 class EvalVQGAN:
     def __init__(self, args):
@@ -139,6 +141,47 @@ class EvalVQGAN:
         plt.title('Codebook Utilization (Sorted)')
         plt.savefig(os.path.join(self.results_dir, "codebook_usage.png"), format="png", dpi=300, bbox_inches="tight", transparent=True)
         plt.close()
+        
+        # Cosine similarity among used codebook vectors
+        used_indices = list(metrics['codebook_usage'].keys())
+
+        # Pull weights once, on CPU, detached
+        W = self.vqgan.codebook.embedding.weight.detach().cpu()  # (K, D)
+
+        # Optional: restrict to used codes (comment this line to match paper exactly)
+        if len(used_indices) >= 2:
+            W = W[used_indices]
+
+        E_np = W.numpy()
+        if E_np.shape[0] >= 2:
+            S = cosine_similarity(E_np)  # sklearn normalizes rows internally
+            offdiag = S[~np.eye(S.shape[0], dtype=bool)]
+            print(f"Mean cosine similarity (used codes): {offdiag.mean():.4f}")
+            print(f"Max  cosine similarity (used codes): {offdiag.max():.4f}")
+
+            plt.figure(figsize=(12, 6))
+            plt.hist(
+                offdiag,
+                bins=100,
+                range=(-1, 1),
+                weights=np.ones_like(offdiag) * 100.0 / offdiag.size,
+                alpha=0.5,
+                color="blue",
+            )
+            plt.xlabel("Cosine Similarity")
+            plt.ylabel("Percentage (%)")
+            plt.xlim(-1, 1)
+            plt.ylim(0, 3)
+            plt.savefig(
+                os.path.join(self.results_dir, "cosine_similarity_used.png"),
+                format="png",
+                dpi=300,
+                bbox_inches="tight",
+                transparent=True,
+            )
+            plt.close()
+        else:
+            print("Not enough codes to compute pairwise cosine similarity.")
         
         # Visualize sample reconstructions
         num_samples = min(5, len(sample_images))
