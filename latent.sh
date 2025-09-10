@@ -19,7 +19,7 @@ sbatch <<EOL
 #!/bin/bash
 #SBATCH --job-name=$JOB_NAME
 #SBATCH --output=$HOME/scratch/slurm-report/slurm_latent_%j.out
-#SBATCH -t 02:00:00
+#SBATCH -t 04:00:00
 #SBATCH -A fuge-prj-jrl
 #SBATCH -p gpu
 #SBATCH --nodes=1

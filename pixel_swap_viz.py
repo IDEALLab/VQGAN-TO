@@ -52,14 +52,15 @@ def save_side_by_side(original, altered, diff, save_path_base):
     ims = []
     for ax, img, title, cmap, vmin, vmax in zip(axs, images, titles, cmaps, vmins, vmaxs):
         im = ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
-        ax.set_title(title, fontsize=12)
+        ax.set_title(title, fontsize=18)
         ax.set_aspect('equal')
         ax.axis("off")
         ims.append(im)
 
     # Simple colorbar positioning
     cbar = plt.colorbar(ims[2], ax=axs, shrink=0.8, aspect=20)
-    cbar.set_label("Change from Original", fontsize=12, rotation=270, labelpad=20)
+    cbar.set_label("Change from Original", fontsize=16, rotation=270, labelpad=20)
+    cbar.ax.tick_params(labelsize=14)
 
     plt.savefig(f"{save_path_base}.png", dpi=300, bbox_inches='tight')
     plt.savefig(f"{save_path_base}.tiff", format='tiff', bbox_inches='tight', 
