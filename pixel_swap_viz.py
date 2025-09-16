@@ -4,10 +4,18 @@ import numpy as np
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
 from torch.utils.data import Subset, DataLoader
+
 from utils import get_data, load_vqgan, set_precision, set_all_seeds
 from args import get_args, load_args, print_args
 
 
+"""
+Code for visualization of latent pixel swaps in VQGAN Stage 1 models
+"""
+
+
+# Swap a specific number of random latent pixels
+# With randomization fixed by seed for reproducibility
 def change_random(vec, num_changes):
     for _ in range(num_changes):
         h1, w1 = np.random.randint(vec.shape[2]), np.random.randint(vec.shape[3])
@@ -20,8 +28,8 @@ def change_random(vec, num_changes):
     return vec
 
 
+# Mirror image horizontally and make it square by bicubic interpolation
 def mirror_image(img_np):
-    """Mirror image horizontally and make it square by bicubic interpolation"""
     mirrored = np.concatenate([img_np, np.flip(img_np, axis=-1)], axis=-1)
     
     # Get current dimensions

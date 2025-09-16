@@ -3,251 +3,45 @@
 # ALL NAMES MUST BE DIFFERENT
 
 
-#################### VQGAN ####################
-# Baseline with default parameters
-# baseline:
-# repeat_baseline:
-# repeat2_baseline:
-
-# 1) Latent dimension ablation
-# latent_32:latent_dim=32
-# latent_16:latent_dim=16
-# latent_8:latent_dim=8
-# latent_4:latent_dim=4
-# latent_4_ND:latent_dim=4,disc_start=999999
-# repeat_latent_4_ND:latent_dim=4,disc_start=999999
-# repeat2_latent_4_ND:latent_dim=4,disc_start=999999
-
-# 2) Codebook vector count ablation
-# codebook_128:num_codebook_vectors=128
-# codebook_64:num_codebook_vectors=64
-# codebook_32:num_codebook_vectors=32
-# repeat_codebook_32:num_codebook_vectors=32
-# repeat2_codebook_32:num_codebook_vectors=32
-
-# 3) Learning rate ablation
-# lr_med:learning_rate=2e-04
-# lr_high:learning_rate=2e-03
-# lr_med_ND:learning_rate=2e-04,disc_start=999999
-# repeat_lr_med_ND:learning_rate=2e-04,disc_start=999999
-# repeat2_lr_med_ND:learning_rate=2e-04,disc_start=999999
-# lr_high_ND:learning_rate=2e-03,disc_start=999999
-
-# 4) Discriminator start ablation
-# disc_early:disc_start=5
-# disc_none:disc_start=999999
-# repeat_disc_none:disc_start=999999
-# repeat2_disc_none:disc_start=999999
-
-# 5) Spectral normalization of the discriminator
-# spec_norm_disc:spectral_disc=true
-
-# 6) Network size ablations (medium, hybrid, and small, respectively)
-# net_med:decoder_channels=256 256 256 128 128,encoder_channels=128 128 128 256 256 256
-# net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256
-# net_small:decoder_channels=128 128 128 64 64,encoder_channels=64 64 64 128 128 128
-
-# 7) Residual blocks ablation
-# res_more:decoder_num_res_blocks=4,encoder_num_res_blocks=3
-# res_less:decoder_num_res_blocks=2,encoder_num_res_blocks=1
-
-# 8) Attention resolution ablation
-# attn_med:decoder_attn_resolutions=16 32,encoder_attn_resolutions=16 32
-# attn_high:decoder_attn_resolutions=16 32 64,encoder_attn_resolutions=16 32 64
-
-# Combinations after initial testing:
-# c1:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=64,learning_rate=2.25e-05,disc_start=999999
-# c2:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
-# c3:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=32,learning_rate=2.25e-05,disc_start=999999
-# c4:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
-
-# c5:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2.25e-05,disc_start=999999
-# c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
-# repeat2_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999
-# c7:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2.25e-05,disc_start=999999
-# c8:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=32,learning_rate=2e-04,disc_start=999999
-
-# Also try latent_dim 4 or even 2? Start without discriminator
-# After this: pick the best above and test with different discriminator start times (0-5 epochs in). When using discriminator, likely stick to learning_rate=2.25e-05
-
-# From c6 (best): lower latent_dim to 2, 1, and double codebook vectors to 128, 256
-# c9:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=2,num_codebook_vectors=128,learning_rate=2e-04,disc_start=999999
-# c10:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=1,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
-
-# c11:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
-# c12:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=512,learning_rate=2e-04,disc_start=999999
-# c13:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=999999
-# c14:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=1024,learning_rate=2e-03,disc_start=999999
-
-#################### CVQGAN ####################
-# cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10
-# Hint: image_channels is the number of conditions in this case
 
 
-################## TRANSFORMER #################
-# Ablation study with baseline and best-performing Stage 1 model: Decreasing transformer size (starting w/ dropout=0.0)
-# Tr_baseline:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_baseline_1:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=12,n_head=12,n_embd=384
-# Tr_baseline_2:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=384
-# Tr_baseline_3:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192
-# Tr_baseline_4:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=6,n_head=6,n_embd=96
-# Tr_baseline_5:is_t=true,model_name=baseline,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=48
 
-# Tr_c6:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_c6_1:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=12,n_head=12,n_embd=384
-# Tr_c6_2:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=384
-# Tr_c6_3:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192
-# Tr_c6_4:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=6,n_head=6,n_embd=96
-# Tr_c6_5:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=48
+# LIST OF ALL MODELS INCLUDED IN THE JMD PAPER WITH THEIR RESPECTIVE CONFIG NAMES HERE:
 
-# Tr_c11:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_c11_repeat:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_c11_repeat_2:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_c11_repeat_3:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10
-# Tr_c11_1:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=12,n_head=12,n_embd=384
-# Tr_c11_2:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=384
-# Tr_c11_3:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192
-# Tr_c11_4:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=6,n_head=6,n_embd=96
-# Tr_c11_5:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=4,n_head=4,n_embd=48
+# CVQGAN: 1_cvq
 
-# Tr_c11_dropout:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3
-# Tr_c11_3_dropout:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,n_layer=8,n_head=8,n_embd=192,dropout=0.3
-# Tr_c11_dropout_pkeep:is_t=true,model_name=c11,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
+# Table 1 Ablation Study in order...
+####################################
+# Original: 1_original
+# HLM: 1_HLM
+# $\lambda_D = 0.1$: 1_disc_010
+# $\eta=2\mathrm{e}{-4}$: 1_lr_med
+# $\eta=2\mathrm{e}{-4}$, $\lambda_D = 0.1$: 1_lr_med_disc_010
+# $n_z=16$: 1_nz_16
+# $n_z=16$, $\lambda_D = 0.1$: 1_nz_16_disc_010
 
-# Tr_c6_dropout_pkeep:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.5
-# Tr_c6_dropout_pkeep_2:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.1,pkeep=0.9
-# Tr_c6_dropout_pkeep_3:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-# Tr_c6_dropout_pkeep_3_repeat:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-# Tr_c6_dropout_pkeep_3_repeat2:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-# Tr_c6_dropout_pkeep_4:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.5,pkeep=0.9
-# Tr_c6_dropout_pkeep_5:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,t_learning_rate=6e-4
-# Tr_c6_dropout_pkeep_6:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,n_layer=24,n_head=16,n_embd=1024
-# Tr_c6_dropout_pkeep_7:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,n_layer=36,n_head=20,n_embd=1280
+# Stage 1 models analyzed in the paper...
+#########################################
+# Original: 1_original
+# AE: 1_c1_cont
+# Baseline: 1_c1
+# DAE: 1_c1_DAE_040
+# Online (1024): 1_c1_online
+# Online (151): 1_c1_online_151
 
-###########################################################################
-###########################################################################
-###########################################################################
-###########################################################################
-###########################################################################
-# nv_c11:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c11_d:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=5,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c11_d_100:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=5,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy,epochs=100
-# nv_c11_d2:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c11_d2_100:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy,epochs=100
-# nv_c11_codebook:codebook_mod_init=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c11_codebook_d:codebook_mod_init=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=5,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=64,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_baseline:dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_latent_4:latent_dim=4,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_latent_4_ND:latent_dim=4,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_lr_med:learning_rate=2e-04,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_lr_med_ND:learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_disc_none:disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_codebook_256:num_codebook_vectors=256,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_codebook_128:num_codebook_vectors=128,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_codebook_64:num_codebook_vectors=64,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_codebook_32:num_codebook_vectors=32,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
+# Stage 2 models analyzed in the paper...
+#########################################
+# WGAN-AE: 1_wgan_c1_cont
+# WGAN-VQ: 1_wgan_c1
+# Online (1024): 1_Tr_c1_online
+# DAE: 1_Tr_c1_DAE_040
+# Online (151): 1_Tr_c1_online_151
+# Baseline: 1_Tr_c1
+# Original: 1_Tr_original
 
-# nv_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_cvq_large:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,c_fmap_dim=16,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_cvq_small:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=9999999,epochs=1000,sample_interval=10,c_fmap_dim=2,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
 
-# nv_Tr_c11:is_t=true,model_name=nv_c11,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_Tr_c6:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
 
-# Tr_3000:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=3000
-# Tr_2500:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=2500
-# Tr_2000:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=2000
-# Tr_1500:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=1500
-# Tr_1000:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=1000
-# Tr_500:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=500
-# Tr_250:is_t=true,model_name=c6,c_model_name=cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=250
 
-# Tr_S_3000:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=3000
-# Tr_S_2500:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=2500
-# Tr_S_2000:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=2000
-# Tr_S_1500:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=1500
-# Tr_S_1000:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=1000
-# Tr_S_500:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=500
-# Tr_S_250:is_t=true,model_name=nv_c6,c_model_name=nv_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9,train_samples=250
-
-# nv_c12:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=5,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c13:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c14:vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-
-# nv_c13_cont:no_vq=true,vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-# nv_c13_cont_ND:no_vq=true,vq_track_val_loss=true,vq_min_validation=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=4,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999,dataset_path=../data/gamma_1506_half.npy,conditions_path=../data/inp_paras_1506.npy
-
-# A_baseline:
-# A_net_hybrid:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256
-# A_disc_low:disc_factor=0.1
-# A_disc_none:disc_start=999999
-# A_lr_med:learning_rate=2e-04
-# A_lr_med_disc_low:learning_rate=2e-04,disc_factor=0.1
-# A_codebook_256:num_codebook_vectors=256
-# A_codebook_128:num_codebook_vectors=128
-# A_codebook_64:num_codebook_vectors=64
-# A_codebook_32:num_codebook_vectors=32
-# A_latent_2:latent_dim=2
-# A_latent_4:latent_dim=4
-# A_latent_8:latent_dim=8
-# A_latent_16:latent_dim=16
-# A_latent_16_disc_low:latent_dim=16,disc_factor=0.1
-# A_c1:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c2:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=256,learning_rate=2e-04,disc_start=999999
-# A_c3:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=8,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c4:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c5:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-
-# A_cvq:is_c=true,image_channels=3,learning_rate=2e-04,disc_start=999999,epochs=1000,sample_interval=10
-
-# A_Tr_c4:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=1000,sample_interval=10,dropout=0.3,pkeep=0.9
-# A_Tr_c4_2:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=200,sample_interval=10,dropout=0.3,pkeep=0.9,T_min_validation=false
-# A_Tr_c4_3:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false
-# A_Tr_c4_4:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-# A_Tr_c4_5:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.3,pkeep=0.9,T_min_validation=false,t_learning_rate=6e-4
-# A_Tr_c4_6:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.0,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-# A_Tr_c4_7:is_t=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,sample_interval=10,dropout=0.5,pkeep=1.0,T_min_validation=false,t_learning_rate=6e-4
-
-# A_wgan_c4_1:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=1
-# A_wgan_c4_3:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=3
-# A_wgan_c4_5:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=5
-# A_wgan_c4_10:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=10
-# A_wgan_c4_15:is_gan=true,model_name=A_c4,c_model_name=A_cvq,epochs=500,learning_rate=0.002,beta1=0.5,beta2=0.999,latent_dim=64,n_critic=15
-
-# A_c4_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
-# A_c4_DAE_050:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.5,DAE_switch_epoch=50
-# A_c4_DAE_040:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
-# A_c4_DAE_030:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.3,DAE_switch_epoch=50
-# A_c4_DAE_020:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.2,DAE_switch_epoch=50
-
-# A_c5_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
-# A_c5_DAE_050:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.5,DAE_switch_epoch=50
-# A_c5_DAE_040:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
-# A_c5_DAE_030:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.3,DAE_switch_epoch=50
-# A_c5_DAE_020:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.2,DAE_switch_epoch=50
-
-# A_c4_cont:no_vq=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=128,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c5_cont:no_vq=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=256,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-
-# A_c6:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c6_cont:no_vq=true,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1
-# A_c6_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
-# A_c6_DAE_040:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50
-# A_c6_DAE_040_online:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=1024,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50,use_Online=true
-
-# # To match A_c6_DAE_040 (126)
-# A_c6_online_126:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=126,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
-
-# # To match A_c6 (145)
-# A_c6_online_145:decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,num_codebook_vectors=145,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_Online=true
-
-#####################
-#####################
-#####################
-
-# NOTE: Remove initial |Z| comparison and just keep it at 1024 for the paper
 
 1_original:val_fraction=0.05
 1_HLM:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256

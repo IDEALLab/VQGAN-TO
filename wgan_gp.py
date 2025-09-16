@@ -1,6 +1,3 @@
-# Code adapted from https://github.com/eriklindernoren/PyTorch-GAN/blob/master/implementations/wgan_gp/wgan_gp.py
-# Paper: https://arxiv.org/abs/1704.00028
-
 import torch
 import numpy as np
 import torch.nn as nn
@@ -12,15 +9,16 @@ import torch.nn.functional as F
 from utils import load_vqgan
 from args import load_args
 
+"""
+# Code adapted from https://github.com/eriklindernoren/PyTorch-GAN/blob/master/implementations/wgan_gp/wgan_gp.py
+# WGAN-GP Paper: https://arxiv.org/abs/1704.00028
+# We mostly follow the architecture guidelines from the WGAN-GP paper, referred to as the "CIFAR-10 ResNet architecture"
+"""
 
 def sn(layer, use_spectral):
     """Apply spectral norm if enabled."""
     return spectral_norm(layer) if use_spectral else layer
 
-
-# ---------------------------
-# Pre-activation ResNet blocks
-# ---------------------------
 
 class ResBlockG(nn.Module):
     """
@@ -106,7 +104,7 @@ class Generator(nn.Module):
             args.c_transform_dim
         )
 
-        self.init_size = 8  # 8×8 → 16×16
+        self.init_size = 8  # 8×8 -> 16×16
         high = self.latent_dim * 4
         mid = self.latent_dim * 2
 
@@ -171,6 +169,7 @@ class Discriminator(nn.Module):
         return self.lin(x)
 
 
+# VQGAN wrapper for WGAN-GP training on the latent space --> WGAN-AE and WGAN-VQ
 class VQGANLatentWrapper(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -225,23 +224,3 @@ def compute_gradient_penalty(D, real_samples, fake_samples, c, device):
     )[0]
     gradients = gradients.view(gradients.size(0), -1)
     return ((gradients.norm(2, dim=1) - 1) ** 2).mean()
-
-# # # Original arguments from the WGAN-GP implementation
-# parser.add_argument("--epochs", type=int, default=200, help="number of epochs of training")
-# parser.add_argument("--batch_size", type=int, default=16, help="size of the batches")
-# parser.add_argument("--learning_rate", type=float, default=0.0002, help="adam: learning rate")
-# parser.add_argument("--beta1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
-# parser.add_argument("--beta2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-# parser.add_argument("--latent_dim", type=int, default=64, help="dimensionality of the latent space")
-# parser.add_argument("--c_input_dim", type=int, default=3, help="dimensionality of the conditions")
-# parser.add_argument("--image_size", type=int, default=256, help="size of each image dimension")
-# parser.add_argument("--image_channels", type=int, default=1, help="number of image channels")
-# parser.add_argument('--seed', type=int, default=1)
-# parser.add_argument('--is_c', type=str2bool, default=False)
-# parser.add_argument('--is_t', type=str2bool, default=False)
-# parser.add_argument('--dataset_path', type=str, default='../data/gamma_4579_half.npy')
-# parser.add_argument('--conditions_path', type=str, default='../data/inp_paras_4579.npy')
-# parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-# parser.add_argument("--gan_sample_interval", type=int, default=400, help="interval betwen image samples")
-# parser.add_argument("--n_critic", type=int, default=5, help="number of training steps for discriminator per iter")
-# parser.add_argument("--lambda_gp", type=float, default=10.0)

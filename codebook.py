@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from torch import einsum
 from einops import rearrange
 
 
+''' Code for class Codebook adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/codebook.py with augmentations for no_vq option '''
 class Codebook(nn.Module):
     def __init__(self, args):
         super(Codebook, self).__init__()
@@ -15,13 +14,9 @@ class Codebook(nn.Module):
         self.no_vq = getattr(args, "no_vq", False)
 
         self.embedding = nn.Embedding(self.num_codebook_vectors, self.latent_dim)
-        if args.codebook_mod_init:
-            half = self.num_codebook_vectors // 2
-            low = torch.empty(half, self.latent_dim).uniform_(0.0, 0.2)
-            high = torch.empty(self.num_codebook_vectors - half, self.latent_dim).uniform_(0.8, 1.0)
-            self.embedding.weight.data = torch.cat([low, high], dim=0)
-        else:
-            self.embedding.weight.data.uniform_(-1.0 / self.num_codebook_vectors, 1.0 / self.num_codebook_vectors)
+        self.embedding.weight.data.uniform_(-1.0 / self.num_codebook_vectors, 1.0 / self.num_codebook_vectors)
+
+
     def forward(self, z):
         if self.no_vq:
             # Skip quantization, return z directly
@@ -57,6 +52,10 @@ class Codebook(nn.Module):
         return z_q, min_encoding_indices, loss
 
 
+"""
+Code for class Online_Codebook taken from https://github.com/lyndonzheng/CVQ-VAE/blob/main/quantise.py for reproducibility
+From the paper "Online Clustered Codebook" https://arxiv.org/abs/2307.15139
+"""
 class Online_Codebook(nn.Module):
     """
     Improved version over vector quantiser, with the dynamic initialisation
@@ -163,6 +162,7 @@ class Online_Codebook(nn.Module):
 
         # return z_q, loss, (perplexity, min_encodings, encoding_indices)
         return z_q, encoding_indices, loss
+
 
 class FeaturePool():
     """

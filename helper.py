@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+"""
+Code from the VQGAN-pytorch repo: https://github.com/dome272/VQGAN-pytorch/blob/main/helper.py
+"""
 class GroupNorm(nn.Module):
     def __init__(self, channels):
         super(GroupNorm, self).__init__()
@@ -96,7 +99,8 @@ class NonLocalBlock(nn.Module):
 
         return x + A
     
-# NEW ADDITION FOR CONDITIONAL ENCODER/DECODER
+
+# New addition for CVQGAN option (not included in original repo)
 class LinearCombo(nn.Module):
     """Regular fully connected layer combo."""
     def __init__(self, in_features, out_features, alpha=0.2):

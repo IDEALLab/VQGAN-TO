@@ -7,6 +7,11 @@ import requests
 from tqdm import tqdm
 
 
+"""
+LPIPS implementation adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/lpips.py
+Augmented with GreyscaleLPIPS option for greyscale images and NoLPIPS option for training without perceptual loss
+"""
+
 URL_MAP = {
     "vgg_lpips": "https://heibox.uni-heidelberg.de/f/607503859c864bc1b30b/?dl=1"
 }
@@ -138,18 +143,23 @@ def spatial_average(x):
     """
     return x.mean([2, 3], keepdim=True)
 
+
+# Greyscale-compatible LPIPS loss module for VQGAN
 class GreyscaleLPIPS(nn.Module):
     def __init__(self, use_raw=True, clamp_output=False, robust_clamp=True, warn_on_clamp=False):
         super().__init__()
+        # Config options for loss computation
         self.use_raw = use_raw
         self.clamp_output = clamp_output
         self.robust_clamp = robust_clamp
         self.warn_on_clamp = warn_on_clamp
 
+        # Normalization layer and VGG backbone for perceptual features
         self.scaling_layer = ScalingLayer()
         self.channels = [64, 128, 256, 512, 512]
         self.vgg = VGG16()
 
+        # Learned linear layers for weighting feature differences
         self.lins = nn.ModuleList([
             NetLinLayer(self.channels[0]),
             NetLinLayer(self.channels[1]),
@@ -158,17 +168,19 @@ class GreyscaleLPIPS(nn.Module):
             NetLinLayer(self.channels[4])
         ])
 
+        # Load pretrained LPIPS weights and freeze parameters
         self.load_from_pretrained()
-
         for param in self.parameters():
             param.requires_grad = False
 
+    # Load pretrained weights for VGG + linear heads
     def load_from_pretrained(self, name="vgg_lpips"):
         ckpt = get_ckpt_path(name, "vgg_lpips")
         state_dict = torch.load(ckpt, map_location=torch.device("cpu"), weights_only=True)
         self.load_state_dict(state_dict, strict=False)
 
     def forward(self, real_x, fake_x):
+        # Optionally warn if inputs are outside [0,1] (TO data is usually in this range)
         if self.warn_on_clamp:
             with torch.no_grad():
                 if (fake_x < 0).any() or (fake_x > 1).any():
@@ -176,24 +188,33 @@ class GreyscaleLPIPS(nn.Module):
                 if (real_x < 0).any() or (real_x > 1).any():
                     print(f"Warning: Reference image contains values outside [0,1] range: [{real_x.min().item():.4f}, {real_x.max().item():.4f}]")
 
+        # Optionally clamp to valid TO design range
         if self.robust_clamp:
             real_x = torch.clamp(real_x, 0.0, 1.0)
             fake_x = torch.clamp(fake_x, 0.0, 1.0)
 
-        # Convert grayscale to RGB by duplicating channel if needed
+        # Convert grayscale input (1 channel) to RGB (3 channels)
         if real_x.shape[1] == 1:
             real_x = real_x.repeat(1, 3, 1, 1)
         if fake_x.shape[1] == 1:
             fake_x = fake_x.repeat(1, 3, 1, 1)
 
+        # Extract VGG feature maps for both inputs
         features_real = self.vgg(self.scaling_layer(real_x))
         features_fake = self.vgg(self.scaling_layer(fake_x))
 
+        # Compute squared feature differences (normalized)
         diffs = [(norm_tensor(fr) - norm_tensor(ff)) ** 2 for fr, ff in zip(features_real, features_fake)]
 
+        """ 
+        Either raw per-layer distances or learned linear weighting
+        For grayscale/topological data, raw is often preferable since the
+        pretrained linear weights were tuned for natural RGB images and may
+        distort structural differences that are actually important.
+        """
         if self.use_raw:
             loss = sum([
-                spatial_average(d).mean(dim=1, keepdim=True)  # reduce channel dimension
+                spatial_average(d).mean(dim=1, keepdim=True)  # average spatially, then across channels
                 for d in diffs
             ])
         else:
@@ -202,14 +223,18 @@ class GreyscaleLPIPS(nn.Module):
                 for i, d in enumerate(diffs)
             ])
 
+        # Optionally clamp final output to non-negative
         if self.clamp_output:
             loss = torch.clamp(loss, min=0.0)
 
         return loss
     
+    
+# Dummy "no LPIPS" loss that always returns zero (useful for ablations or simpler models)
 class NoLPIPS(nn.Module):
     def __init__(self):
         super().__init__()
         
     def forward(self, real_x, fake_x):
         return torch.zeros_like(real_x)
+

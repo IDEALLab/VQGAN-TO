@@ -6,6 +6,10 @@ from decoder import Decoder, CondDecoder
 from codebook import Codebook, Online_Codebook
 
 
+"""
+Code adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/vqgan.py
+With augmentations for DAE option and compatibility with CVQGAN
+"""
 class VQGAN(nn.Module):
     def __init__(self, args):
         super(VQGAN, self).__init__()

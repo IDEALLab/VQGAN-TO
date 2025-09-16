@@ -9,11 +9,17 @@ from utils import get_data, load_vqgan, set_precision, set_all_seeds, topo_dista
 from args import get_args, load_args, print_args
 
 
+"""
+Latent analysis and results saving for VQGAN Stage 1 models
+"""
+
+# Calculate Intermediate Value Penalty (IVP)
 def intermediate_value_loss(data, b1=0.2, b2=0.8):
     data = np.ceil(np.clip((data - b1), 0, 1) * np.clip((b2 - data), 0, 1))
     return data.mean()
 
 
+# Swap two specific latent pixels
 def change_specific(vec, p1, p2):
     a = vec[0, :, p1[0], p1[1]].clone()
     b = vec[0, :, p2[0], p2[1]].clone()
@@ -21,22 +27,7 @@ def change_specific(vec, p1, p2):
     vec[0, :, p1[0], p1[1]] = b
     return vec
 
-
-def change_random(vec, num_changes):
-    for _ in range(num_changes):
-        h1, w1 = np.random.randint(vec.shape[2]), np.random.randint(vec.shape[3])
-        h2, w2 = h1, w1
-        while h1 == h2 and w1 == w2:
-            h2, w2 = np.random.randint(vec.shape[2]), np.random.randint(vec.shape[3])
-        vec = change_specific(vec, [h1, w1], [h2, w2])
-    return vec
-
-
-def flip_pixel(vec, h, w):
-    vec[:, :, h, w] *= -1
-    return vec
-
-
+# Runs the interpolation and pixel swap experiments with results saved to ../evals/ by default
 class LatentAnalysis:
     def __init__(self, args):
         set_precision()
@@ -102,10 +93,12 @@ class LatentAnalysis:
                 outputs = decoded_images.cpu().numpy()
 
                 if len(zs) == 2:
+                    # Determine two samples to interpolate between and their latent difference
                     interp_topos.append([])
                     s1, s2 = zs[0], zs[1]
                     diff = s2 - s1
 
+                    # Run interpolation between two samples
                     iv_list, dv_list = [], []
                     for step in range(num_steps + 1):
                         alpha = step / num_steps
@@ -130,7 +123,7 @@ class LatentAnalysis:
                     interp_ivs.append(iv_list)
                     interp_dvs.append(dv_list)
 
-                # Topological perturbation on a single random latent sample
+                # Pixel swapping on a single latent sample
                 q = torch.tensor(zs[0]).to(self.device).unsqueeze(0)
                 recon = self.vqgan.decode(q).detach().cpu().numpy()[0]
                 q_alt = torch.clone(q).to(self.device)
@@ -149,6 +142,7 @@ class LatentAnalysis:
 
                 topo_accum.append(stats)
 
+        # Save all results and "alts": specific pixel swap indices for reproducibility
         np.save(os.path.join(self.latent_results_dir, 'interp_topos.npy'), np.array(interp_topos))
         np.save(os.path.join(self.latent_results_dir, 'interp_ivs.npy'), np.array(interp_ivs))
         np.save(os.path.join(self.latent_results_dir, 'interp_dvs.npy'), np.array(interp_dvs))

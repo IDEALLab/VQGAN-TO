@@ -6,6 +6,10 @@ from copy import deepcopy
 from utils import load_vqgan
 from args import load_args, print_args
 
+"""
+Code adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/transformer.py
+With augmentations for conditional inputs via the pretrained CVQGAN and improved sampling logic
+"""
 
 class VQGANTransformer(nn.Module):
     def __init__(self, args):
@@ -68,6 +72,7 @@ class VQGANTransformer(nn.Module):
     def forward(self, x, c, pkeep=1.0):
         _, indices = self.encode_to_z(x)
 
+        # Replace the start token with the encoded conditional input if using CVQGAN
         if self.t_is_c:
             _, sos_tokens = self.encode_to_z(c, is_c=True)
         else:
@@ -103,10 +108,7 @@ class VQGANTransformer(nn.Module):
     def sample(self, x, c, steps, temperature=1.0, top_k=100, greedy=False):
         x = torch.cat((c, x), dim=1)
         
-        # Option 1: Use NanoGPT's built-in generate method
-        # return self.transformer.generate(x, steps, temperature, top_k)[:, c.shape[1]:]
-        
-        # Option 2: Keep the original sampling logic for compatibility
+        # Keep the original sampling logic for compatibility
         for k in range(steps):
             logits, _ = self.transformer(x, None)
             logits = logits[:, -1, :] / temperature
@@ -133,6 +135,7 @@ class VQGANTransformer(nn.Module):
             if greedy:
                 ix = torch.argmax(probs, dim=-1, keepdim=True)
             else:
+                # In the VQGAN paper we use multinomial sampling (top_k=None, greedy=False)
                 ix = torch.multinomial(probs, num_samples=1)
 
             x = torch.cat((x, ix), dim=1)
@@ -145,6 +148,7 @@ class VQGANTransformer(nn.Module):
         log = dict()
 
         _, indices = self.encode_to_z(x)
+        # Replace the start token with the encoded conditional input if using CVQGAN
         if self.t_is_c:
             _, sos_tokens = self.encode_to_z(c, is_c=True)
         else:

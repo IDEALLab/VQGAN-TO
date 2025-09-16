@@ -11,6 +11,10 @@ from utils import get_data, plot_data, load_vqgan, set_precision, set_all_seeds
 from args import get_args, load_args, print_args
 from sklearn.metrics.pairwise import cosine_similarity
 
+
+"""
+Comprehensive evaluation and metrics calculation + saving for VQGAN models (Stage 1)
+"""
 class EvalVQGAN:
     def __init__(self, args):
         set_precision()

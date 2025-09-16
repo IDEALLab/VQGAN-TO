@@ -3,6 +3,9 @@ import torch.nn.utils as nn_utils
 from helper import ResidualBlock, NonLocalBlock, UpSampleBlock, GroupNorm, Swish, LinearCombo
 
 
+"""
+Code for class Decoder adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/decoder.py with augmentations for DAE option
+"""
 class Decoder(nn.Module):
     def __init__(self, args):
         super(Decoder, self).__init__()
@@ -21,8 +24,9 @@ class Decoder(nn.Module):
                 in_channels = out_channels
                 if resolution in args.decoder_attn_resolutions:
                     layers.append(NonLocalBlock(in_channels))
+                # Apply dropout after each residual block for part 1 of DAE-VQGAN training
                 if args.use_DAE: 
-                    layers.append(self.dropout)  # Apply dropout after each residual block
+                    layers.append(self.dropout)
                 
             if i != 0:
                 layers.append(UpSampleBlock(in_channels))
@@ -36,6 +40,8 @@ class Decoder(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+
+# Decoder for CVQGAN option
 class CondDecoder(nn.Module):
     def __init__(self, args):
         super(CondDecoder, self).__init__()

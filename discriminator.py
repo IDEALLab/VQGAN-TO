@@ -5,6 +5,11 @@ PatchGAN Discriminator (https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/
 import torch.nn as nn
 import torch.nn.utils as nn_utils
 
+
+"""
+Code for class Discriminator adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/discriminator.py
+Includes augmentations for CVQGAN option and spectral normalization option
+"""
 class Discriminator(nn.Module):
     def __init__(self, args, num_filters_last=64, n_layers=3):
         super(Discriminator, self).__init__()
@@ -44,3 +49,12 @@ class Discriminator(nn.Module):
         if x.ndim == 2:
             x = self.cvqgan_adapter(x) 
         return self.model(x)
+
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)

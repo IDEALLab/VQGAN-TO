@@ -13,6 +13,9 @@ from utils import get_data, set_precision, set_all_seeds
 from args import get_args, print_args, save_args
 
 
+"""
+Comprehensive training and metrics calculation + saving for WGAN-GP models (Stage 2)
+"""
 class TrainWGAN_GP:
     def __init__(self, args):
         set_precision()
@@ -71,9 +74,7 @@ class TrainWGAN_GP:
                 # Get real image reconstructions for comparison
                 recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
 
-                ############################
-                # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-                ###########################
+                # Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 self.optimizer_D.zero_grad()
                 z = torch.randn(imgs.shape[0], self.args.latent_dim, device=self.device)
                 fake_latents = self.generator(z, c)
@@ -87,10 +88,7 @@ class TrainWGAN_GP:
                 self.optimizer_D.step()
                 train_d_losses.append(d_loss.item())
 
-                ############################
-                # (2) Update G network
-                ###########################
-                # Train Generator every n_critic steps
+                # Update G network: train Generator every n_critic steps
                 if i % self.args.n_critic == 0:
                     self.optimizer_G.zero_grad()
 
@@ -104,28 +102,6 @@ class TrainWGAN_GP:
                     # Base generator loss
                     g_loss = -torch.mean(fake_validity)
 
-                    # Compute auxiliary losses (kept as comments)
-                    # perceptual_loss = lpips(recon_imgs, gen_imgs).mean()
-                    # recon_loss = F.l1_loss(recon_imgs, gen_imgs)
-                    # vf_loss = torch.abs(recon_imgs.mean() - gen_imgs.mean())
-                    # intermediate_loss = (0.25 - ((gen_imgs - 0.5) ** 2)).mean()
-                    # real_mean, real_std = real_latents.mean(dim=[2, 3]), real_latents.std(dim=[2, 3])
-                    # fake_mean, fake_std = gen_latents.mean(dim=[2, 3]), gen_latents.std(dim=[2, 3])
-                    # dist_loss = F.l1_loss(fake_mean, real_mean) + F.l1_loss(fake_std, real_std)
-
-                    # Generator loss: adversarial + auxiliary
-                    # print(f"g_loss: {g_loss.item()}")
-                    # print(f"recon_loss: {recon_loss.item()}")
-                    # print(f"perceptual_loss: {perceptual_loss.item()}")
-                    # print(f"vf_loss: {vf_loss.item()}")
-                    # print(f"intermediate_loss: {intermediate_loss.item()}")
-                    # print(f"dist_loss: {dist_loss.item()}\n\n")
-                    # g_loss += 1e0 * recon_loss
-                    # g_loss += 1e1 * perceptual_loss
-                    # g_loss += 1e1 * vf_loss
-                    # g_loss += 1e1 * intermediate_loss
-                    # g_loss += 1e0 * dist_loss
-
                     g_loss.backward()
                     self.optimizer_G.step()
                     train_g_losses.append(g_loss.item())
@@ -137,11 +113,10 @@ class TrainWGAN_GP:
             self.losses['train_d_loss'].append(train_d_avg)
             self.losses['train_g_loss'].append(train_g_avg)
 
-            # Validation L1 loss
+            # Validation loss calculation
             self.generator.eval()
             self.vq_wrapper.eval()
             val_l1_losses = []
-
             with torch.no_grad():
                 for val_imgs, val_c in val_dataloader:
                     val_imgs = val_imgs.to(self.device)

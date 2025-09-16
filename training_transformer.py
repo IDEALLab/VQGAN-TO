@@ -6,11 +6,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import utils as vutils
+
 from transformer import VQGANTransformer
 from utils import get_data, set_precision, set_all_seeds
 from args import get_args, save_args, print_args
 
 
+"""
+Comprehensive training and metrics calculation + saving for Transformer models (Stage 2)
+"""
 class TrainTransformer:
     def __init__(self, args):
         set_precision()

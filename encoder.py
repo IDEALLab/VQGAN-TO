@@ -2,6 +2,9 @@ import torch.nn as nn
 from helper import ResidualBlock, NonLocalBlock, DownSampleBlock, UpSampleBlock, GroupNorm, Swish, LinearCombo
 
 
+"""
+Code for class Encoder adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/encoder.py
+"""
 class Encoder(nn.Module):
     def __init__(self, args):
         super(Encoder, self).__init__()
@@ -31,6 +34,7 @@ class Encoder(nn.Module):
         return self.model(x)
     
 
+# Encoder for CVQGAN option
 class CondEncoder(nn.Module):
     def __init__(self, args):
         super(CondEncoder, self).__init__()
