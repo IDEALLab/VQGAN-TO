@@ -1,22 +1,17 @@
 import os
-import json
 import numpy as np
 import random
 import seaborn as sns
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
-from torchvision.models import inception_v3, Inception_V3_Weights
-from torchvision.models.feature_extraction import create_feature_extractor
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from vqgan import VQGAN
 from scipy import ndimage
 from sklearn.metrics import pairwise_distances
-from torch_topological.nn import CubicalComplex #, SummaryStatisticLoss
-from paretoset import paretoset
+from torch_topological.nn import CubicalComplex
 
 
 """

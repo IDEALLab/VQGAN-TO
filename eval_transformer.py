@@ -3,11 +3,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-import seaborn as sns
 from scipy.ndimage import label
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds, plot_data, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
+from utils import get_data, set_precision, set_all_seeds, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
 from args import get_args, load_args, print_args
 
 

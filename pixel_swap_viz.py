@@ -2,8 +2,6 @@ import os
 import torch
 import numpy as np
 from scipy.ndimage import zoom
-import matplotlib.pyplot as plt
-from torch.utils.data import Subset, DataLoader
 
 from utils import get_data, load_vqgan, set_precision, set_all_seeds
 from args import get_args, load_args, print_args

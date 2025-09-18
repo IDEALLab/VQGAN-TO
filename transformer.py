@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from nanogpt import GPT, GPTConfig
 from copy import deepcopy
 from utils import load_vqgan
-from args import load_args, print_args
+from args import load_args
 
 """
 Code adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/transformer.py

@@ -1,6 +1,5 @@
 import os
 import torch
-import torch.nn.functional as F
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm

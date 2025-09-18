@@ -4,7 +4,9 @@ import torch.nn.functional as F
 from einops import rearrange
 
 
-''' Code for class Codebook adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/codebook.py with augmentations for no_vq option '''
+"""
+Code for class Codebook adapted from https://github.com/dome272/VQGAN-pytorch/blob/main/codebook.py with augmentations for no_vq option
+"""
 class Codebook(nn.Module):
     def __init__(self, args):
         super(Codebook, self).__init__()
@@ -187,7 +189,7 @@ class FeaturePool():
         """
         return features from the pool
         """
-        self.features = self.features.to(features.device)    
+        self.features = self.features.to(features.device)
         if self.nums_features < self.pool_size:
             if features.size(0) > self.pool_size: # if the batch size is large enough, directly update the whole codebook
                 random_feat_id = torch.randint(0, features.size(0), (int(self.pool_size),))

@@ -3,7 +3,6 @@ import numpy as np
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.utils import save_image, make_grid
 from lpips import GreyscaleLPIPS
