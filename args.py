@@ -18,21 +18,23 @@ def get_args():
     parser = argparse.ArgumentParser(description="VQGAN Training Args")
 
     # Metadata
-    parser.add_argument('--dataset_path', type=str, default='../data/new/nonv/gamma_5666_half.npy', help='Path to the dataset file (numpy format)')
-    parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy', help='Path to the conditions file (numpy format)')
+    parser.add_argument('--load_from_hf', type=str2bool, default=False, help='Whether to load the data from Hugging Face. Use in conjunction with --dataset_path and --conditions_path.')
+    parser.add_argument('--dataset_path', type=str, default='../data/new/nonv/gamma_5666_half.npy', help='Path to the dataset file (numpy format). If loading from Hugging Face, use "gamma_5666_half.npy".')
+    parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy', help='Path to the conditions file (numpy format). If loading from Hugging Face, use "inp_paras_5666.npy".')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use for training and evaluation')
     parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
     parser.add_argument('--track', type=str2bool, default=True, help='Whether to track the training statistics')
     parser.add_argument('--save_model', type=str2bool, default=True, help='Whether to save the trained model')
     parser.add_argument('--sample_interval', type=int, default=1, help='Interval (in epochs) to save checkpoints during training')
     parser.add_argument('--run_name', type=str, default=datetime.now().strftime("Tr-%Y-%m-%d_%H-%M-%S"), help='Name of the training run for saving models and logs')
-    parser.add_argument('--val_fraction', type=float, default=0.15, help='Fraction of the dataset to use for validation')
+    parser.add_argument('--val_fraction', type=float, default=0.05, help='Fraction of the dataset to use for validation')
 
 
     # VQGAN Stage 1 (Autoencoder): Codebook & Training
     parser.add_argument('--latent_dim', type=int, default=256, help='Individual code dimension')
     parser.add_argument('--image_size', type=int, default=256, help='Input image size for the VQGAN')
     parser.add_argument('--num_codebook_vectors', type=int, default=1024, help='Number of codebook vectors')
+    parser.add_argument('--beta', type=float, default=0.25, help='Beta hyperparameter for the codebook commitment loss')
     parser.add_argument('--image_channels', type=int, default=1, help='Number of image input channels')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
     parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')

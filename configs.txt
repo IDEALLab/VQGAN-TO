@@ -99,3 +99,5 @@
 3_Tr_c1_DAE_040:val_fraction=0.05,is_t=true,model_name=3_c1_DAE_040,c_model_name=1_cvq,epochs=500,sample_interval=5,dropout=0.3,pkeep=1.0,T_min_validation=true,t_learning_rate=6e-4
 
 4_c1_DAE_040:val_fraction=0.05,decoder_channels=256 128 128 64 64,encoder_channels=64 64 64 128 128 256,latent_dim=16,learning_rate=2e-04,disc_start=0,disc_factor=0.1,use_DAE=true,DAE_dropout=0.4,DAE_switch_epoch=50,epochs=49
+
+0_test_hf:load_from_hf=true,dataset_path=gamma_5666_half.npy,conditions_path=inp_paras_5666.npy,epochs=10

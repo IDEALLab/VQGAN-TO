@@ -5,6 +5,7 @@ import seaborn as sns
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
+from huggingface_hub import hf_hub_download
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -135,15 +136,25 @@ def npy_to_gamma(tensor, path, name='gamma', template='../data/gamma_template'):
 ### DATA RETRIEVAL UTILS ###
 ############################
 def get_data(args, use_val_split=False):
+    # If loading from Hugging Face Hub, download first
+    if getattr(args, "load_from_hf", False):
+        # args.conditions_path and args.dataset_path should be filenames in the repo
+        repo_id = "IDEALLab/MTO-2D"  # fixed repo for now
+        cond_file = hf_hub_download(repo_id=repo_id, filename=args.conditions_path)
+        data_file = hf_hub_download(repo_id=repo_id, filename=args.dataset_path)
+    else:
+        cond_file = args.conditions_path
+        data_file = args.dataset_path
+
     # Load and normalize conditions
-    c_orig = torch.from_numpy(np.load(args.conditions_path).astype(np.float32))
+    c_orig = torch.from_numpy(np.load(cond_file).astype(np.float32))
     c, means, stds = normalize(c_orig)
 
     # Load main dataset or use conditions as input
     if args.is_c:
         x = deepcopy(c)
     else:
-        x = torch.from_numpy(np.load(args.dataset_path).astype(np.float32)).reshape(
+        x = torch.from_numpy(np.load(data_file).astype(np.float32)).reshape(
             -1, args.image_channels, args.image_size, args.image_size
         )
 
