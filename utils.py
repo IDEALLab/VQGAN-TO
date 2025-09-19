@@ -140,8 +140,8 @@ def get_data(args, use_val_split=False):
     if getattr(args, "load_from_hf", False):
         # args.conditions_path and args.dataset_path should be filenames in the repo
         repo_id = "IDEALLab/MTO-2D"  # fixed repo for now
-        cond_file = hf_hub_download(repo_id=repo_id, filename=args.conditions_path)
-        data_file = hf_hub_download(repo_id=repo_id, filename=args.dataset_path)
+        cond_file = hf_hub_download(repo_id=repo_id, filename=args.conditions_path, repo_type="dataset")
+        data_file = hf_hub_download(repo_id=repo_id, filename=args.dataset_path, repo_type="dataset")
     else:
         cond_file = args.conditions_path
         data_file = args.dataset_path
