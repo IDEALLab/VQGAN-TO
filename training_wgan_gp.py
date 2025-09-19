@@ -8,7 +8,7 @@ from torchvision.utils import save_image, make_grid
 from lpips import GreyscaleLPIPS
 
 from wgan_gp import Generator, Discriminator, compute_gradient_penalty, VQGANLatentWrapper
-from utils import get_data, set_precision, set_all_seeds
+from utils import get_data, set_precision, set_all_seeds, safe_compile
 from args import get_args, print_args, save_args
 
 
@@ -26,6 +26,10 @@ class TrainWGAN_GP:
         self.generator = Generator(args).to(self.device)
         self.discriminator = Discriminator(args).to(self.device)
         self.vq_wrapper = VQGANLatentWrapper(args).to(self.device)
+
+        self.generator = safe_compile(self.generator)
+        self.discriminator = safe_compile(self.discriminator)
+        self.vq_wrapper = safe_compile(self.vq_wrapper)
 
         self.optimizer_G = torch.optim.Adam(
             self.generator.parameters(), lr=args.gan_g_learning_rate, betas=(args.beta1, args.beta2)

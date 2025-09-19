@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torchvision import utils as vutils
 
 from transformer import VQGANTransformer
-from utils import get_data, set_precision, set_all_seeds
+from utils import get_data, set_precision, set_all_seeds, safe_compile
 from args import get_args, save_args, print_args
 
 
@@ -29,8 +29,7 @@ class TrainTransformer:
         self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
         self.saves_dir = saves_dir
 
-        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-            self.model = torch.compile(self.model)
+        self.model = safe_compile(self.model)
 
         self.prepare_training()
         self.train(args)

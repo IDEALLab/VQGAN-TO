@@ -2,6 +2,7 @@ import os
 import numpy as np
 import random
 import seaborn as sns
+import platform
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, random_split
@@ -54,6 +55,20 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
+def safe_compile(model):
+    """
+    Try torch.compile if supported, otherwise return model unchanged.
+    """
+    if hasattr(torch, "compile") and torch.__version__ >= "2.0.0":
+        if platform.system() != "Windows": # Not supported on Windows
+            try:
+                return torch.compile(model)
+            except Exception as e:
+                print(f"[Warning] torch.compile failed, falling back to eager: {e}")
+                return model
+    return model
+
+
 ########################
 ### WARM-START UTILS ###
 ########################
@@ -61,8 +76,10 @@ def seed_worker(worker_id):
 # As such they are hard-coded for 400x400 images with the specific MTO problem layout
 
 
-# Backend: converts extracted gamma array to a properly ordered one representing a 400x400 image
 def gamma_to_tensor(gamma):
+    """
+    Backend: converts extracted gamma array to a properly ordered one representing a 400x400 image
+    """
     gamma_field1 = np.reshape(gamma[0:64000], (400, 160))
     gamma_field2 = np.reshape(gamma[64000:80000], (400, 40))
     gamma_field = np.concatenate((gamma_field1, gamma_field2), axis=1)
@@ -70,8 +87,10 @@ def gamma_to_tensor(gamma):
     return gamma_field_full
 
 
-# Backend: Reorders a 400x400 image array to gamma array format
 def tensor_to_gamma(tensor):
+    """
+    Backend: Reorders a 400x400 image array to gamma array format
+    """
     gamma_field_full = np.flipud(tensor)
     gamma_field = np.split(gamma_field_full, 2, axis=1)[0]
     gamma_field1, gamma_field2 = np.split(gamma_field, [160], axis=1)
@@ -81,8 +100,10 @@ def tensor_to_gamma(tensor):
     return np.concatenate([gamma_field1, gamma_field2])
 
 
-# Reads a gamma file and extracts the relevant field as a string
 def read_gamma(path):
+    """
+    Reads a gamma file and extracts the relevant field as a string
+    """
     de1 = '86400\n(\n'
     de2 = '\n)\n'
     with open(path, 'r') as f:
@@ -99,16 +120,20 @@ def read_gamma(path):
     return head, body, tail
 
 
-# Converts gamma file to numpy array, returning the final 400x400 image
 def gamma_to_npy(path):
+    """
+    Converts gamma file to numpy array, returning the final 400x400 image
+    """
     _, field, _ = read_gamma(path)
     gamma = np.asarray(field.split('\n'), dtype=float)
     tensor = gamma_to_tensor(gamma)
     return tensor
 
 
-# Converts numpy array to gamma file, saving to specified path. Hard-coded for 400x400 MTO images.
 def npy_to_gamma(tensor, path, name='gamma', template='../data/gamma_template'): # tensor shape (h, w) = (400, 400)
+    """
+    Converts numpy array to gamma file, saving to specified path. Hard-coded for 400x400 MTO images.
+    """
     de1 = '86400\n(\n'
     de2 = '\n)\n'
     if template is None:
@@ -239,8 +264,10 @@ def get_data_split_indices(args, use_val_split=False):
         return train_indices, None, test_indices
 
 
-# Normalize the conditions for zero mean and unit variance
 def normalize(data):
+    """
+    Normalize the conditions for zero mean and unit variance
+    """
     means = torch.mean(data, dim=0)
     stds = torch.std(data, dim=0)
     return (data-means)/stds, list(means.numpy()), list(stds.numpy())
@@ -266,7 +293,7 @@ def plot_data(data, titles, ranges, fname=None, dpi=100, mirror_image=False, cma
     fig, axs = plt.subplots(1, L, figsize=(int(5*L), 4))
     [ax.axes.xaxis.set_visible(False) for ax in axs]
     [ax.axes.yaxis.set_visible(False) for ax in axs]
-    plt.rcParams['savefig.dpi'] = dpi
+    plt.rcParams["savefig.dpi"] = dpi
     plt.rcParams["figure.dpi"] = dpi
 
     for idx, (figure, title, current_range) in enumerate(zip(data, titles, ranges)):
@@ -347,9 +374,7 @@ def load_vqgan(args):
 
     model = VQGAN(args).to(args.device)
     model.load_state_dict(state_dict, strict=False)
-
-    if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-        model = torch.compile(model)
+    model = safe_compile(model)
 
     return model
 
@@ -359,8 +384,6 @@ def load_vqgan(args):
 ###############
 
 
-# MMD
-# Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
 def gaussian_kernel(X, Y, sigma):
     beta = 1. / (2. * sigma**2)
     dists = pairwise_distances(X, Y)  # shape (n_x, n_y)
@@ -373,6 +396,10 @@ def median_heuristic_sigma(X, Y):
     return median / np.sqrt(2)
 
 def MMD(X_gen, X_test):
+    """
+    MMD
+    Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
+    """
     X_gen = X_gen.reshape((X_gen.shape[0], -1))
     X_test = X_test.reshape((X_test.shape[0], -1))
     
@@ -386,9 +413,11 @@ def MMD(X_gen, X_test):
     return np.sqrt(mmd)
 
 
-# ‘Differentiable’ persistence diagrams for structured data, such as images. 
-# https://pytorch-topological.readthedocs.io/en/latest/nn.html#torch_topological.nn.CubicalComplex
 def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, reduction='sum', rounding_bias=0, imageops=True, return_pair=False):
+    """
+    Differentiable persistence diagrams for structured data, such as images. 
+    https://pytorch-topological.readthedocs.io/en/latest/nn.html#torch_topological.nn.CubicalComplex
+    """
     c = CubicalComplex()
 
     if not torch.is_tensor(X): X = torch.tensor(X)
@@ -453,10 +482,11 @@ def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, redu
         return losses
 
 
-# R-Div
-# Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
 def rdiv(X_train, X_gen):
-    """Full pairwise distances without sampling"""
+    """
+    R-Div: full pairwise distances without sampling
+    Code adapted from our CEBGAN repository at https://github.com/IDEALLab/CEBGAN_JMD_2021/blob/main/CEBGAN/src/utils/metrics.py 
+    """
     X_train = X_train.reshape((X_train.shape[0], -1))
     X_gen = X_gen.reshape((X_gen.shape[0], -1))
     
@@ -471,8 +501,10 @@ def rdiv(X_train, X_gen):
     return gen_div / train_div
 
 
-# Volume Fraction Loss. N specifies how many equal-sized quadrants to split the data into (default 1 i.e. no splitting)
 def vf_loss(input, target, N=1, d=1):
+    """
+    Volume Fraction Loss. N specifies how many equal-sized quadrants to split the data into (default 1 i.e. no splitting)
+    """
     loss = []
     input = np.squeeze(input)
     target = np.squeeze(target)

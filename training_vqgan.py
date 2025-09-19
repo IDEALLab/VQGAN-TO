@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from discriminator import Discriminator, weights_init
 from lpips import LPIPS, GreyscaleLPIPS, NoLPIPS
 from vqgan import VQGAN
-from utils import get_data, plot_data, set_precision, set_all_seeds, plot_3d_scatter_comparison
+from utils import get_data, plot_data, set_precision, set_all_seeds, plot_3d_scatter_comparison, safe_compile
 from args import get_args, save_args, print_args
 
 
@@ -50,9 +50,8 @@ class TrainVQGAN:
         self.checkpoints_dir = os.path.join(saves_dir, "checkpoints")
         self.saves_dir = saves_dir
 
-        if hasattr(torch, 'compile') and torch.__version__ >= '2.0.0':
-            self.vqgan = torch.compile(self.vqgan)
-            self.discriminator = torch.compile(self.discriminator)
+        self.vqgan = safe_compile(self.vqgan)
+        self.discriminator = safe_compile(self.discriminator)
 
         self.prepare_training()
         self.train(args)
