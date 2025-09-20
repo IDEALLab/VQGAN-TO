@@ -32,20 +32,13 @@ def set_precision():
     
 
 def set_all_seeds(seed):
-    # Python's built-in random module
     random.seed(seed)
-    
-    # Numpy
     np.random.seed(seed)
-    
-    # PyTorch
     torch.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    
-    # Set environment variables (helps with some PyTorch operations)
     os.environ['PYTHONHASHSEED'] = str(seed)
 
 
@@ -142,7 +135,7 @@ def npy_to_gamma(tensor, path, name='gamma', template='../data/gamma_template'):
             'templates'
         )
         template = os.path.join(template_path, 'gamma_template')
-    head, field, tail = read_gamma(template) # location    "1922";
+    head, field, tail = read_gamma(template)
     head = head.replace('location    "200";', 'location    "0";')
     gamma = np.asarray(field.split('\n'), dtype=float)
     gamma[:80000] = tensor_to_gamma(tensor)

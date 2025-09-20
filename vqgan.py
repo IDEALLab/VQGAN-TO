@@ -38,7 +38,7 @@ class VQGAN(nn.Module):
     def switch_to_new_decoder(self):
         if hasattr(self, "new_decoder"):
             self.decoder = self.new_decoder
-            delattr(self, "new_decoder")  # Now safe due to registration
+            delattr(self, "new_decoder")
         else:
             print("Warning: Tried to switch to new_decoder, but it does not exist.")
 

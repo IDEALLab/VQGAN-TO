@@ -91,7 +91,7 @@ class TrainVQGAN:
             val_rec_losses = []
             val_percep_losses = []
             val_q_losses = []
-            epoch_codebook_usage = {}  # Reset codebook usage tracking for each epoch
+            epoch_codebook_usage = {}
 
             # Note: freezes encoder + quant_conv if using DAE after specified epoch
             if epoch == args.DAE_switch_epoch and args.use_DAE:
