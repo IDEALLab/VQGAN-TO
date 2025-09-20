@@ -32,7 +32,6 @@ class VQGAN(nn.Module):
             self.add_module("new_decoder", Decoder(temp_args).to(device=args.device))
         else:
             assert args.DAE_dropout == 0.0, "DAE dropout must be 0 if not using DAE"
-            assert args.DAE_switch_epoch > args.epochs, "DAE switch epoch must be greater than total epochs if not using DAE"
         
         self.codebook = (Online_Codebook(args) if args.use_Online else Codebook(args)).to(device=args.device)
 

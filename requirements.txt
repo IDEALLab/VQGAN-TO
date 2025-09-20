@@ -1,0 +1,32 @@
+# Core ML - install separately depending on your system
+# CUDA 12.1 (recommended for HPC):
+#   pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 torchaudio==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+# CPU-only (works everywhere, slower):
+#   pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+
+# Python
+numpy==1.26.4
+scipy==1.11.4
+pandas==2.2.3
+matplotlib==3.10.1
+seaborn==0.13.2
+scikit-learn==1.7.0
+scikit-image==0.25.2
+
+# Utils
+tqdm==4.67.1
+PyYAML==6.0.2
+requests==2.32.3
+
+# Project-specific
+lpips==0.1.4
+paretoset==1.2.5
+einops==0.8.1
+wandb==0.19.9
+huggingface-hub==0.35.0
+
+# Topology optimization
+torch-topological==0.1.7
+POT==0.8.2
+giotto-ph==0.2.4
+gudhi==3.11.0
