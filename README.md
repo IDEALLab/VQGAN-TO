@@ -1,67 +1,140 @@
-## Note:
-Code Tutorial + Implementation Tutorial
+# VQGAN for Topology Optimization (TO) Problems
+In Topology Optimization (TO) and related engineering applications, physics-constrained simulations are often used to optimize candidate designs given some set of boundary conditions. Yet such models are computationally expensive and do not guarantee convergence to a desired result, given the frequent non-convexity of the performance objective.
 
-<a href="https://www.youtube.com/watch?v=wcqLFDXaDO8">
-   <img alt="Qries" src="https://user-images.githubusercontent.com/61938694/154516539-90e2d4d0-4383-41f4-ad32-4c6d67bd2442.jpg"
-   width="300">
-</a>
+To address this, we propose an augmented **Vector-Quantized GAN (VQGAN)** that allows for effective compression of TO designs within a discrete latent space, known as a **codebook**, while preserving high reconstruction quality. 
 
-<a href="https://www.youtube.com/watch?v=_Br5WRwUz_U">
-   <img alt="Qries" src="https://user-images.githubusercontent.com/61938694/154628085-eede604f-442d-4bdb-a1ed-5ad3264e5aa0.jpg"
-   width="300">
-</a>
+Our experiments use a new dataset of two-dimensional heat sink designs optimized via Multi-physics Topology Optimization (MTO): [IDEALLab/MTO-2D dataset on Hugging Face](https://huggingface.co/datasets/IDEALLab/MTO-2D)
 
-# VQGAN
-Vector Quantized Generative Adversarial Networks (VQGAN) is a generative model for image modeling. It was introduced in [Taming Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2012.09841). The concept is build upon two stages. The first stage learns in an autoencoder-like fashion by encoding images into a low-dimensional latent space, then applying vector quantization by making use of a codebook. Afterwards, the quantized latent vectors are projected back to the original image space by using a decoder. Encoder and Decoder are fully convolutional. The second stage is learning a transformer for the latent space. Over the course of training it learns which codebook vectors go along together and which not. This can then be used in an autoregressive fashion to generate before unseen images from the data distribution.
+We can also leverage the VQGAN codebook to train a GPT-2 model, generating thermally performant heat sink designs within a fraction of the time taken by conventional optimization approaches.
 
-## Results for First Stage (Reconstruction):
+---
+
+## Train and evaluate VQGAN locally:
+### Setup
+0. Clone this repository and move to the project root directory.
+
+1. Create & activate a Python 3.10 virtual environment  
+
+   **Windows (PowerShell)**  
+   
+   ```
+   py -3.10 -m venv vqgan_env
+   ```
+   
+   ```
+   \vqgan_env\Scripts\Activate.ps1
+   ```
+   
+   **Linux / macOS**
+   
+   ```
+   python3.10 -m venv vqgan_env
+   ```
+   
+   ```
+   source vqgan_env/bin/activate
+   ```
+
+2. Install the required PyTorch variant
+   
+   **CUDA 12.1 (GPU)**
+   
+      ```
+      pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 torchaudio==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+      ```
+
+   **CPU-only**
+   
+      ```
+      pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+      ```
+
+3. Install remaining dependencies  
+   
+   ``` 
+   pip install -r requirements.txt --upgrade --no-cache-dir
+   ```
 
 
-### 1. Epoch:
+### Training (VQGAN)
 
-<img src="https://user-images.githubusercontent.com/61938694/154057590-3f457a92-42dd-4912-bb1e-9278a6ae99cc.jpg" width="500">
+1. Train Stage 1 VQGAN using the HF dataset  
 
+      ```
+      python training_vqgan.py
+         --load_from_hf True
+         --dataset_path gamma_5666_half.npy
+         --conditions_path inp_paras_5666.npy
+         --run_name vqgan_stage_1
+      ```
 
-### 50. Epoch:
+   Saves/checkpoints are then written to `../saves/vqgan_stage_1/` by default.
 
-<img src="https://user-images.githubusercontent.com/61938694/154057511-266fa6ce-5c45-4660-b669-1dca0841823f.jpg" width="500">
+2. Train a smaller VQGAN (C-VQGAN) on the conditions
 
+   ```
+   python training_vqgan.py
+      --load_from_hf True
+      --dataset_path gamma_5666_half.npy
+      --conditions_path inp_paras_5666.npy
+      --run_name cvqgan
+      --is_c True
+      --image_channels 3
+      --learning_rate 0.0002
+      --disc_start 999999
+      --epochs 1000
+      --sample_interval 10
+   ```
 
+### Evaluation (VQGAN)
 
-## Results for Second Stage (Generating new Images):
-Original Left | Reconstruction Middle Left | Completion Middle Right | New Image Right
-### 1. Epoch:
+1. Evaluate a trained VQGAN run
+   
+   ```
+   python eval_vqgan.py --model_name vqgan_stage_1
+   ```
+   
+---
 
-<img src="https://user-images.githubusercontent.com/61938694/154058167-9627c71c-d180-449a-ba18-19a85843cee2.jpg" width="500">
+## Training (Transformer)
 
-### 100. Epoch:
+1. Train a small GPT-2–style Transformer on VQGAN code sequences with CVQGAN conditioning
 
-<img src="https://user-images.githubusercontent.com/61938694/154058563-700292b6-8fbb-4ba1-b4d7-5955030e4489.jpg" width="500">
+   ```
+   python training_transformer.py
+      --is_t True
+      --model_name vqgan_stage_1
+      --c_model_name cvqgan
+      --t_name vqgan_stage_2
+      --run_name vqgan_stage_2
+      --epochs 500
+      --sample_interval 5
+      --dropout 0.3
+      --pkeep 1.0
+      --T_min_validation True
+      --t_learning_rate 0.0006
+   ```
 
-Note: Let the model train for even longer to get better results.
+   Saves/checkpoints are then written to `../saves/vqgan_stage_2/` by default.
 
-<hr>
+### Evaluation (Transformer)
 
-## Train VQGAN on your own data:
-### Training First Stage
-1. (optional) Configure Hyperparameters in ```training_vqgan.py```
-2. Set path to dataset in ```training_vqgan.py```
-3. ```python training_vqgan.py```
+1. Evaluate a trained Transformer run
 
-### Training Second Stage
-1. (optional) Configure Hyperparameters in ```training_transformer.py```
-2. Set path to dataset in ```training_transformer.py```
-3. ```python training_transformer.py```
-
+   ```
+   python eval_transformer.py --is_t True --t_name vqgan_stage_2
+   ```
+   
+---
 
 ## Citation
 ```bibtex
-@misc{esser2021taming,
-      title={Taming Transformers for High-Resolution Image Synthesis}, 
-      author={Patrick Esser and Robin Rombach and Björn Ommer},
-      year={2021},
-      eprint={2012.09841},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@inproceedings{drake2024quantize,
+  title={To Quantize or Not to Quantize: Effects on Generative Models for 2D Heat Sink Design},
+  author={Drake, Arthur and Wang, Jun and Chen, Qiuyi and Nejat, Ardalan and Guest, James and Fuge, Mark},
+  booktitle={International Design Engineering Technical Conferences and Computers and Information in Engineering Conference},
+  volume={88360},
+  pages={V03AT03A017},
+  year={2024},
+  organization={American Society of Mechanical Engineers}
 }
-```
