@@ -1,7 +1,7 @@
 # VQGAN for Topology Optimization (TO) Problems
 In Topology Optimization (TO) and related engineering applications, physics-constrained simulations are often used to optimize candidate designs given some set of boundary conditions. Yet such models are computationally expensive and do not guarantee convergence to a desired result, given the frequent non-convexity of the performance objective.
 
-To address this, we propose an augmented **Vector-Quantized GAN (VQGAN)** that allows for effective compression of TO designs within a discrete latent space, known as a **codebook**, while preserving high reconstruction quality. 
+To address this, we propose an augmented **Vector-Quantized GAN (VQGAN)** that allows for effective compression of TO designs within a discrete latent space, known as a **codebook**, while preserving high reconstruction quality. Our code uses [dome272's implementation](https://huggingface.co/datasets/IDEALLab/MTO-2D) of VQGAN for PyTorch as a starting point, with several expansions for running models on HPC, reproducible training and evaluation, latent space analysis, and more.
 
 Our experiments use a new dataset of two-dimensional heat sink designs optimized via Multi-physics Topology Optimization (MTO): [IDEALLab/MTO-2D dataset on Hugging Face](https://huggingface.co/datasets/IDEALLab/MTO-2D)
 
@@ -102,6 +102,9 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
 
    ```
    python training_transformer.py
+      --load_from_hf True
+      --dataset_path gamma_5666_half.npy
+      --conditions_path inp_paras_5666.npy
       --is_t True
       --model_name vqgan_stage_1
       --c_model_name cvqgan
