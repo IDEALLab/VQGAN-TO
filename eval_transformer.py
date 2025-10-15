@@ -37,6 +37,7 @@ class EvalTransformer:
         (dataloader, _, test_dataloader), _, _ = get_data(args, use_val_split=True)
         _, _, test_indices = get_data_split_indices(args, use_val_split=True)
         orig_indices = np.load("../data/new/nonv/index_5666.npy")
+        L_size = args.decoder_start_resolution
         
         # Check if test_gammas directory exists and is nonempty
         test_gammas_dir = "../data/test_gammas/"
@@ -132,8 +133,8 @@ class EvalTransformer:
                 start = indices[:, :0]
                 gen_indices = self.model.sample(start, sos_tokens, steps=indices.shape[1], top_k=None, greedy=False)
 
-                indices = indices.cpu().numpy().reshape(-1,1,16,16)
-                gen_indices = gen_indices.cpu().numpy().reshape(-1,1,16,16)
+                indices = indices.cpu().numpy().reshape(-1,1,L_size,L_size)
+                gen_indices = gen_indices.cpu().numpy().reshape(-1,1,L_size,L_size)
 
                 # Append combined images and indices for later saving
                 combined = np.stack([original, recon, full_sample], axis=1)
@@ -169,7 +170,7 @@ class EvalTransformer:
         avg_disconnected = np.mean(fluid_counts) - 1
         sse = np.mean(np.abs(solid_counts - solid_counts_real) / solid_counts_real)
 
-        print(f"\nTransformer Evaluation:")
+        print("\nTransformer Evaluation:")
         print(f"  Log of Average CE Loss: {log_avg_loss:.6f}")
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
         print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.6f}")

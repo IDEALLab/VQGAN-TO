@@ -144,6 +144,8 @@ def get_args():
     # Add derived paths for Stage 2 (Transformer)
     args.checkpoint_path = os.path.join("../saves", args.model_name, "checkpoints", "vqgan.pth")
     args.c_checkpoint_path = os.path.join("../saves", args.c_model_name, "checkpoints", "vqgan.pth")
+    args.decoder_start_resolution = args.image_size // (2 ** (len(args.encoder_channels) - 2))
+
 
     return args
 

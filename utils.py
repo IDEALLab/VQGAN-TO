@@ -180,9 +180,10 @@ def get_data(args, use_val_split=False):
     if args.is_c:
         x = deepcopy(c)
     else:
-        x = torch.from_numpy(np.load(data_file).astype(np.float32)).reshape(
-            -1, args.image_channels, args.image_size, args.image_size
-        )
+        x = torch.from_numpy(np.load(data_file).astype(np.float32))
+        L = len(x)
+        S = int(np.sqrt(np.prod(x.shape)/(L*args.image_channels)))
+        x = x.reshape(L, args.image_channels, S, S)
 
     if args.data_fraction < 1.0:
         total_samples = len(x)
@@ -190,6 +191,10 @@ def get_data(args, use_val_split=False):
         print(f"Using a fraction of the dataset: {selected_samples}/{total_samples} samples.")
         x = x[:selected_samples]
         c = c[:selected_samples]
+
+    if not args.is_c:
+        assert x.shape[-1] == args.image_size and x.shape[-2] == args.image_size, "Image size mismatch, please check args.image_size"
+        assert len(x) == len(c), "Data and conditions length mismatch, please check dataset_path and conditions_path"
 
     dataset = TensorDataset(x, c)
     generator = torch.Generator().manual_seed(args.seed)
@@ -248,8 +253,6 @@ def get_data_split_indices(args, use_val_split=False):
     if use_val_split:
         train_len = int(0.75 * dataset_length)
         val_len = int(args.val_fraction * dataset_length)
-        test_len = dataset_length - train_len - val_len
-
         train_indices = shuffled_indices[:train_len]
         val_indices = shuffled_indices[train_len:train_len + val_len]
         test_indices = shuffled_indices[train_len + val_len:]
@@ -260,8 +263,6 @@ def get_data_split_indices(args, use_val_split=False):
         return train_indices, val_indices, test_indices
     else:
         train_len = int(0.75 * dataset_length)
-        test_len = dataset_length - train_len
-
         train_indices = shuffled_indices[:train_len]
         test_indices = shuffled_indices[train_len:]
 
@@ -424,13 +425,15 @@ def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, redu
     """
     c = CubicalComplex()
 
-    if not torch.is_tensor(X): X = torch.tensor(X)
-    if not Y is None and not torch.is_tensor(Y): Y = torch.tensor(Y)
+    if not torch.is_tensor(X):
+        X = torch.tensor(X)
+    if Y is not None and not torch.is_tensor(Y):
+        Y = torch.tensor(Y)
     if len(X.shape) == 2:
         X = X.unsqueeze(0)
     if len(X.shape) == 4:
         X = X.squeeze(1)
-    if not Y is None:
+    if Y is not None:
         if len(Y.shape) == 2:
             Y = Y.unsqueeze(0)
         if len(Y.shape) == 4:
@@ -445,7 +448,7 @@ def topo_distance(X, Y=None, preprocess=True, normalize=True, padding=True, redu
 
     losses = torch.zeros(len(X), 1+int(return_pair))
 
-    if not Y is None:
+    if Y is not None:
         for idx, (x, y) in enumerate(zip(X, Y)):
             # Apply morphological operations to clean up noisy designs if imageops is True
             if imageops:

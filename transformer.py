@@ -33,6 +33,8 @@ class VQGANTransformer(nn.Module):
             for param in self.cvqgan.parameters():
                 param.requires_grad = False
 
+        self.p1 = self.p2 = vq_args.decoder_start_resolution
+
         # block_size is automatically set to the combined sequence length of the VQGAN and CVQGAN
         block_size = (vq_args.image_size // (2 ** (len(vq_args.decoder_channels) - 1))) ** 2
         if args.t_is_c:
@@ -63,8 +65,8 @@ class VQGANTransformer(nn.Module):
         return quant_z, indices
 
     @torch.no_grad()
-    def z_to_image(self, indices, p1=16, p2=16):
-        ix_to_vectors = self.vqgan.codebook.embedding(indices).reshape(indices.shape[0], p1, p2, -1)
+    def z_to_image(self, indices):
+        ix_to_vectors = self.vqgan.codebook.embedding(indices).reshape(indices.shape[0], self.p1, self.p2, -1)
         ix_to_vectors = ix_to_vectors.permute(0, 3, 1, 2)
         image = self.vqgan.decode(ix_to_vectors)
         return image

@@ -74,6 +74,7 @@ class TrainTransformer:
     def train(self, args):
         (dataloader, val_dataloader, _), means, stds = get_data(args, use_val_split=True)
         best_val_loss = float('inf')
+        L_size = args.decoder_start_resolution
 
         for epoch in tqdm(range(args.epochs)):
             train_losses = []
@@ -91,8 +92,8 @@ class TrainTransformer:
             self.model.eval()
 
             # Validation loss and per-token accuracy
-            total_token_correct = torch.zeros(256, device=args.device)
-            total_token_count = torch.zeros(256, device=args.device)
+            total_token_correct = torch.zeros(L_size**2, device=args.device)
+            total_token_count = torch.zeros(L_size**2, device=args.device)
 
             with torch.no_grad():
                 for imgs, c in val_dataloader:
@@ -122,7 +123,7 @@ class TrainTransformer:
 
                 if epoch % args.t_sample_interval == 0:
                     # Average accuracy per token position across val set
-                    mean_token_accuracy = (total_token_correct / total_token_count.clamp(min=1)).view(16, 16).cpu().numpy()
+                    mean_token_accuracy = (total_token_correct / total_token_count.clamp(min=1)).view(L_size, L_size).cpu().numpy()
                     avg_accuracy = mean_token_accuracy.mean()
 
                     plt.figure(figsize=(4, 4))
@@ -161,7 +162,7 @@ class TrainTransformer:
 
             self.model.train()
         
-        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, f"transformer_final.pt"))
+        torch.save(self.model.state_dict(), os.path.join(self.checkpoints_dir, "transformer_final.pt"))
 
 
 if __name__ == '__main__':
