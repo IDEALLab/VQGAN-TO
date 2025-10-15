@@ -209,5 +209,6 @@ class EvalTransformer:
 
 if __name__ == '__main__':
     args = get_args()
+    args.is_t = True
     print_args(args, title="Initial Arguments")
     eval_transformer = EvalTransformer(args)

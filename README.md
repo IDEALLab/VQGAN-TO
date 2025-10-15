@@ -3,9 +3,9 @@ In Topology Optimization (TO) and related engineering applications, physics-cons
 
 To address this, we propose an augmented **Vector-Quantized GAN (VQGAN)** that allows for effective compression of TO designs within a discrete latent space, known as a **codebook**, while preserving high reconstruction quality. 
 
-Our experiments use a new dataset of two-dimensional heat sink designs optimized via Multi-physics Topology Optimization (MTO): [IDEALLab/MTO-2D dataset on Hugging Face](https://huggingface.co/datasets/IDEALLab/MTO-2D)
+Our experiments use a new dataset of two-dimensional heat sink designs optimized via Multi-physics Topology Optimization (MTO): [IDEALLab/MTO-2D dataset on Hugging Face](https://huggingface.co/datasets/IDEALLab/MTO-2D). We assume that VQGAN is always made conditional subject to a vector of scalar boundary conditions, material properties, etc. For example, the MTO problem specifies a condition vector of shape (3,) for each design, containing the fluid inlet velocity, maximum fluid power dissipation, and maximum fluid volume fraction, respectively.
 
-We can also leverage the VQGAN codebook to train a GPT-2 model, generating thermally performant heat sink designs within a fraction of the time taken by conventional optimization approaches.
+We can also leverage the VQGAN codebook to train a small GPT-2 model, generating thermally performant heat sink designs within a fraction of the time taken by conventional optimization approaches.
 
 ---
 
@@ -22,7 +22,7 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
    ```
    
    ```
-   \vqgan_env\Scripts\Activate.ps1
+   .\vqgan_env\Scripts\Activate.ps1
    ```
    
    **Linux / macOS**
@@ -32,7 +32,7 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
    ```
    
    ```
-   source vqgan_env/bin/activate
+   source ./vqgan_env/bin/activate
    ```
 
 2. Install the required PyTorch variant
@@ -61,30 +61,16 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
 1. Train Stage 1 VQGAN using the HF dataset  
 
       ```
-      python training_vqgan.py
-         --load_from_hf True
-         --dataset_path gamma_5666_half.npy
-         --conditions_path inp_paras_5666.npy
-         --run_name vqgan_stage_1
+      python training_vqgan.py --load_from_hf True --run_name vqgan_stage_1
       ```
 
    Saves/checkpoints are then written to `../saves/vqgan_stage_1/` by default.
 
-2. Train a smaller VQGAN (C-VQGAN) on the conditions
+2. Train a smaller VQGAN (C-VQGAN) on the conditions; note that you must set `is_c = True` for this:
 
-   ```
-   python training_vqgan.py
-      --load_from_hf True
-      --dataset_path gamma_5666_half.npy
-      --conditions_path inp_paras_5666.npy
-      --run_name cvqgan
-      --is_c True
-      --image_channels 3
-      --learning_rate 0.0002
-      --disc_start 999999
-      --epochs 1000
-      --sample_interval 10
-   ```
+      ```
+      python training_vqgan.py --is_c True --load_from_hf True --run_name cvqgan
+      ```
 
 ### Evaluation (VQGAN)
 
@@ -101,18 +87,7 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
 1. Train a small GPT-2–style Transformer on VQGAN code sequences with CVQGAN conditioning
 
    ```
-   python training_transformer.py
-      --is_t True
-      --model_name vqgan_stage_1
-      --c_model_name cvqgan
-      --t_name vqgan_stage_2
-      --run_name vqgan_stage_2
-      --epochs 500
-      --sample_interval 5
-      --dropout 0.3
-      --pkeep 1.0
-      --T_min_validation True
-      --t_learning_rate 0.0006
+   python training_transformer.py --model_name vqgan_stage_1 --c_model_name cvqgan --run_name vqgan_stage_2
    ```
 
    Saves/checkpoints are then written to `../saves/vqgan_stage_2/` by default.
@@ -122,7 +97,7 @@ We can also leverage the VQGAN codebook to train a GPT-2 model, generating therm
 1. Evaluate a trained Transformer run
 
    ```
-   python eval_transformer.py --is_t True --t_name vqgan_stage_2
+   python eval_transformer.py --t_name vqgan_stage_2
    ```
    
 ---

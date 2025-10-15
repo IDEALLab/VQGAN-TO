@@ -201,6 +201,7 @@ class TrainWGAN_GP:
 
 if __name__ == '__main__':
     args = get_args()
+    args.is_gan = True
     print_args(args, title="Training Arguments")
     save_args(args)
     train_wgan_gp = TrainWGAN_GP(args)

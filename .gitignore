@@ -32,3 +32,6 @@ Thumbs.db
 # Local models / LPIPS
 vgg_lpips/
 *.pth
+
+# Github
+*.git

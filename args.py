@@ -19,8 +19,11 @@ def get_args():
 
     # Metadata
     parser.add_argument('--load_from_hf', type=str2bool, default=False, help='Whether to load the data from Hugging Face. Use in conjunction with --dataset_path and --conditions_path.')
-    parser.add_argument('--dataset_path', type=str, default='../data/new/nonv/gamma_5666_half.npy', help='Path to the dataset file (numpy format). If loading from Hugging Face, use "gamma_5666_half.npy".')
-    parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy', help='Path to the conditions file (numpy format). If loading from Hugging Face, use "inp_paras_5666.npy".')
+    parser.add_argument('--repo_id', type=str, default='IDEALLab/MTO-2D', help='Hugging Face repo ID to load the dataset and conditions from. Used when --load_from_hf is set to True.')
+    parser.add_argument('--dataset_path', type=str, default='../data/new/nonv/gamma_5666_half.npy', help='Local path to the dataset file (numpy format).')
+    parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy', help='Local path to the conditions file (numpy format).')
+    parser.add_argument('--hf_dataset_path', type=str, default='gamma_5666_half.npy', help='Hugging Face path to the dataset file (numpy format). Used when --load_from_hf is set to True.')
+    parser.add_argument('--hf_conditions_path', type=str, default='inp_paras_5666.npy', help='Hugging Face path to the conditions file (numpy format). Used when --load_from_hf is set to True.')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use for training and evaluation')
     parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
     parser.add_argument('--track', type=str2bool, default=True, help='Whether to track the training statistics')
@@ -80,7 +83,8 @@ def get_args():
     '''
     parser.add_argument('--is_t', type=str2bool, default=False, help='Specify if the model is a transformer')
     parser.add_argument('--early_stop', type=str2bool, default=True, help='Whether to use early stopping based on validation loss')
-    parser.add_argument('--t_learning_rate', type=float, default=4.5e-06, help='Learning rate for the transformer Adam optimizer')
+    parser.add_argument('--t_learning_rate', type=float, default=0.0006, help='Learning rate for the transformer Adam optimizer')
+    parser.add_argument('--t_sample_interval', type=int, default=5, help='Interval (in epochs) to save checkpoints during Transformer training')
     parser.add_argument('--t_name', type=str, default="Tr_baseline", help='Name of the transformer model for saving and loading')
     parser.add_argument('--model_name', type=str, default="baseline", help='Name of the VQGAN model for saving and loading')
     parser.add_argument('--c_model_name', type=str, default="cvq", help='Name of the CVQGAN model for saving and loading')
@@ -122,6 +126,19 @@ def get_args():
 
 
     args, _ = parser.parse_known_args()
+
+    # Adjust defaults if CVQGAN and relevant arguments not specified
+    if args.is_c:
+        if args.image_channels == parser.get_default("image_channels"):
+            args.image_channels = 3 # CVQGAN assumes 3-channel conditions input
+        if args.learning_rate == parser.get_default("learning_rate"):
+            args.learning_rate = 0.0002 # CVQGAN typically uses a higher learning rate
+        if args.disc_start == parser.get_default("disc_start"):
+            args.disc_start = float('inf') # CVQGAN does not use a discriminator
+        if args.epochs == parser.get_default("epochs"):
+            args.epochs = 1000 # CVQGAN trains for more epochs since it is a very small model and we can afford this
+        if args.sample_interval == parser.get_default("sample_interval"):
+            args.sample_interval = 100 # CVQGAN does not need frequent sampling
 
     # Add derived paths for Stage 2 (Transformer)
     args.checkpoint_path = os.path.join("../saves", args.model_name, "checkpoints", "vqgan.pth")

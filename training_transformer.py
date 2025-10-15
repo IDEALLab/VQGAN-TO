@@ -120,7 +120,7 @@ class TrainTransformer:
                 # Save the loss data with a fixed name (overwriting previous versions)
                 np.save(os.path.join(self.results_dir, "log_loss.npy"), np.array([self.log_losses[k] for k in self.log_losses]))
 
-                if epoch % args.sample_interval == 0:
+                if epoch % args.t_sample_interval == 0:
                     # Average accuracy per token position across val set
                     mean_token_accuracy = (total_token_correct / total_token_count.clamp(min=1)).view(16, 16).cpu().numpy()
                     avg_accuracy = mean_token_accuracy.mean()
@@ -166,6 +166,8 @@ class TrainTransformer:
 
 if __name__ == '__main__':
     args = get_args()
+    args.is_t = True
+    args.t_name = args.run_name
     print_args(args, title="Training Arguments")
     save_args(args)
     train_transformer = TrainTransformer(args)

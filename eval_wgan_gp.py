@@ -172,5 +172,6 @@ class EvalWGAN_GP:
 
 if __name__ == '__main__':
     args = get_args()
+    args.is_gan = True
     print_args(args, title="Initial Arguments")
     eval_wgan_gp = EvalWGAN_GP(args)
