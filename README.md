@@ -69,7 +69,7 @@ We can also leverage the VQGAN codebook to train a small GPT-2 model, generating
 2. Train a smaller VQGAN (C-VQGAN) on the conditions; note that you must set `is_c = True` for this:
 
       ```
-      python training_vqgan.py --is_c True --load_from_hf True --run_name cvqgan
+      python training_vqgan.py --load_from_hf True --is_c True --run_name cvqgan
       ```
 
 ### Evaluation (VQGAN)
@@ -87,7 +87,7 @@ We can also leverage the VQGAN codebook to train a small GPT-2 model, generating
 1. Train a small GPT-2–style Transformer on VQGAN code sequences with CVQGAN conditioning
 
    ```
-   python training_transformer.py --model_name vqgan_stage_1 --c_model_name cvqgan --run_name vqgan_stage_2
+   python training_transformer.py --load_from_hf True --model_name vqgan_stage_1 --c_model_name cvqgan --run_name vqgan_stage_2
    ```
 
    Saves/checkpoints are then written to `../saves/vqgan_stage_2/` by default.

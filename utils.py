@@ -184,6 +184,13 @@ def get_data(args, use_val_split=False):
             -1, args.image_channels, args.image_size, args.image_size
         )
 
+    if args.data_fraction < 1.0:
+        total_samples = len(x)
+        selected_samples = int(total_samples * args.data_fraction)
+        print(f"Using a fraction of the dataset: {selected_samples}/{total_samples} samples.")
+        x = x[:selected_samples]
+        c = c[:selected_samples]
+
     dataset = TensorDataset(x, c)
     generator = torch.Generator().manual_seed(args.seed)
 
@@ -203,17 +210,13 @@ def get_data(args, use_val_split=False):
         return load_data(args, train_data, None, test_data, generator), means, stds
 
 
-def get_num_workers():
-    # Try SLURM setting first, then fallback to system cores
-    return int(os.environ.get("SLURM_CPUS_PER_TASK", max(2, os.cpu_count() // 2)))
-
-
 def load_data(args, train_data, val_data, test_data, g):
+    data_fraction = getattr(args, "data_fraction", 1.0)
     common_kwargs = {
         'batch_size': args.batch_size,
-        'num_workers': get_num_workers(),
-        'pin_memory': True,
-        'persistent_workers': True,
+        'num_workers': 1,
+        'pin_memory': True if data_fraction == 1.0 else False,
+        'persistent_workers': True if data_fraction == 1.0 else False,
         'worker_init_fn': seed_worker
     }
 

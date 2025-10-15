@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--conditions_path', type=str, default='../data/new/nonv/inp_paras_5666.npy', help='Local path to the conditions file (numpy format).')
     parser.add_argument('--hf_dataset_path', type=str, default='gamma_5666_half.npy', help='Hugging Face path to the dataset file (numpy format). Used when --load_from_hf is set to True.')
     parser.add_argument('--hf_conditions_path', type=str, default='inp_paras_5666.npy', help='Hugging Face path to the conditions file (numpy format). Used when --load_from_hf is set to True.')
+    parser.add_argument('--data_fraction', type=float, default=1.0, help='DEBUG: Fraction of the dataset to use for training')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use for training and evaluation')
     parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
     parser.add_argument('--track', type=str2bool, default=True, help='Whether to track the training statistics')
@@ -98,7 +99,7 @@ def get_args():
     parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate in the transformer')       
     parser.add_argument('--bias', type=str2bool, default=True, help='Whether to use bias in the transformer layers')
     parser.add_argument('--T_min_validation', type=str2bool, default=True, help='Whether to save the best transformer model based on minimum validation loss')
-    parser.add_argument('--train_samples', type=int, default=9999999, help='Number of training samples to use (for debugging -- set to a large number to use all samples)')
+    parser.add_argument('--train_samples', type=int, default=1e12, help='Number of training samples to use (for debugging -- set to a large number to use all samples)')
 
 
     # Conditional VQGAN (CVQGAN)
@@ -134,7 +135,7 @@ def get_args():
         if args.learning_rate == parser.get_default("learning_rate"):
             args.learning_rate = 0.0002 # CVQGAN typically uses a higher learning rate
         if args.disc_start == parser.get_default("disc_start"):
-            args.disc_start = float('inf') # CVQGAN does not use a discriminator
+            args.disc_start = 1e12 # CVQGAN does not use a discriminator
         if args.epochs == parser.get_default("epochs"):
             args.epochs = 1000 # CVQGAN trains for more epochs since it is a very small model and we can afford this
         if args.sample_interval == parser.get_default("sample_interval"):
