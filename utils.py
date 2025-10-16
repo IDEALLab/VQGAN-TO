@@ -123,18 +123,12 @@ def gamma_to_npy(path):
     return tensor
 
 
-def npy_to_gamma(tensor, path, name='gamma', template='../data/gamma_template'): # tensor shape (h, w) = (400, 400)
+def npy_to_gamma(tensor, path, name='gamma', template='./gamma_template'): # tensor shape (h, w) = (400, 400)
     """
     Converts numpy array to gamma file, saving to specified path. Hard-coded for 400x400 MTO images.
     """
     de1 = '86400\n(\n'
     de2 = '\n)\n'
-    if template is None:
-        template_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'templates'
-        )
-        template = os.path.join(template_path, 'gamma_template')
     head, field, tail = read_gamma(template)
     head = head.replace('location    "200";', 'location    "0";')
     gamma = np.asarray(field.split('\n'), dtype=float)
@@ -193,7 +187,9 @@ def get_data(args, use_val_split=False):
         c = c[:selected_samples]
 
     if not args.is_c:
-        assert x.shape[-1] == args.image_size and x.shape[-2] == args.image_size, "Image size mismatch, please check args.image_size"
+        if not (x.shape[-1] == args.image_size and x.shape[-2] == args.image_size):
+            print("Warning: Image size mismatch compared to input argument; resizing automatically.")
+            x = F.interpolate(x, size=(args.image_size, args.image_size), mode='bicubic')
         assert len(x) == len(c), "Data and conditions length mismatch, please check dataset_path and conditions_path"
 
     dataset = TensorDataset(x, c)
@@ -236,14 +232,38 @@ def get_data_split_indices(args, use_val_split=False):
     """
     Return train/val/test indices corresponding to the original dataset,
     matching the behavior of torch.utils.data.random_split with a fixed seed.
+    Mirrors get_data()'s source selection (HF vs local) and data_fraction logic.
     """
-    # Load dataset size
+    # Resolve data sources (HF or local)
+    if getattr(args, "load_from_hf", False):
+        repo_id = getattr(args, "repo_id", "IDEALLab/MTO-2D")
+        cond_file = hf_hub_download(
+            repo_id=repo_id,
+            filename=getattr(args, "hf_conditions_path", "inp_paras_5666.npy"),
+            repo_type="dataset"
+        )
+        data_file = hf_hub_download(
+            repo_id=repo_id,
+            filename=getattr(args, "hf_dataset_path", "gamma_5666_half.npy"),
+            repo_type="dataset"
+        )
+    else:
+        cond_file = args.conditions_path
+        data_file = args.dataset_path
+
+    # Determine dataset length
     if args.is_c:
-        c = np.load(args.conditions_path).astype(np.float32)
+        c = np.load(cond_file).astype(np.float32)
         dataset_length = len(c)
     else:
-        x = np.load(args.dataset_path).astype(np.float32)
+        x = np.load(data_file).astype(np.float32)
         dataset_length = len(x)
+
+    # Apply data_fraction truncation like in get_data
+    data_fraction = getattr(args, "data_fraction", 1.0)
+    if data_fraction < 1.0:
+        selected_samples = int(dataset_length * data_fraction)
+        dataset_length = selected_samples
 
     generator = torch.Generator().manual_seed(args.seed)
 
@@ -252,7 +272,7 @@ def get_data_split_indices(args, use_val_split=False):
 
     if use_val_split:
         train_len = int(0.75 * dataset_length)
-        val_len = int(args.val_fraction * dataset_length)
+        val_len = int(getattr(args, "val_fraction", 0.1) * dataset_length)
         train_indices = shuffled_indices[:train_len]
         val_indices = shuffled_indices[train_len:train_len + val_len]
         test_indices = shuffled_indices[train_len + val_len:]

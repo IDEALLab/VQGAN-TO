@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from scipy.ndimage import label
+from huggingface_hub import hf_hub_download
 
 from transformer import VQGANTransformer
 from utils import get_data, set_precision, set_all_seeds, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
@@ -36,7 +37,17 @@ class EvalTransformer:
     def evaluate(self, args):
         (dataloader, _, test_dataloader), _, _ = get_data(args, use_val_split=True)
         _, _, test_indices = get_data_split_indices(args, use_val_split=True)
-        orig_indices = np.load("../data/new/nonv/index_5666.npy")
+        if getattr(args, "load_from_hf", False):
+            repo_id = getattr(args, "repo_id", "IDEALLab/MTO-2D")
+            index_file = hf_hub_download(
+                repo_id=repo_id,
+                filename=getattr(args, "hf_index_path", "index_5666.npy"),
+                repo_type="dataset"
+            )
+        else:
+            index_file = "../data/new/nonv/index_5666.npy"
+
+        orig_indices = np.load(index_file)
         L_size = args.decoder_start_resolution
         
         # Check if test_gammas directory exists and is nonempty
