@@ -272,7 +272,7 @@ def get_data_split_indices(args, use_val_split=False):
 
     if use_val_split:
         train_len = int(0.75 * dataset_length)
-        val_len = int(getattr(args, "val_fraction", 0.1) * dataset_length)
+        val_len = int(getattr(args, "val_fraction", 0.05) * dataset_length)
         train_indices = shuffled_indices[:train_len]
         val_indices = shuffled_indices[train_len:train_len + val_len]
         test_indices = shuffled_indices[train_len + val_len:]
