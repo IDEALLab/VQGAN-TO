@@ -237,4 +237,3 @@ class NoLPIPS(nn.Module):
         
     def forward(self, real_x, fake_x):
         return torch.zeros_like(real_x)
-

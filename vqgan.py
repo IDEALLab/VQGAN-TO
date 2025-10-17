@@ -80,11 +80,3 @@ class VQGAN(nn.Module):
 
     def load_checkpoint(self, path):
         self.load_state_dict(torch.load(path))
-
-
-
-
-
-
-
-

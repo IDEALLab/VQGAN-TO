@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from scipy.ndimage import label
+from huggingface_hub import hf_hub_download
 
 from wgan_gp import Generator, VQGANLatentWrapper
 from utils import get_data, set_precision, set_all_seeds, process_state_dict, MMD, rdiv, get_data_split_indices, npy_to_gamma, mirror
@@ -23,10 +24,10 @@ class EvalWGAN_GP:
         os.makedirs(self.results_dir, exist_ok=True)
 
         args = load_args(args)
-        self.args = args
-
         self.model = Generator(args).to(device=args.device)
         self.vq_wrapper = VQGANLatentWrapper(args).to(device=args.device)
+        if hasattr(self.vq_wrapper.vq_args, "load_from_hf"):
+            args.load_from_hf = self.vq_wrapper.vq_args.load_from_hf
 
         ckpt_path = os.path.join("../saves", args.run_name, "checkpoints", "generator.pt")
         checkpoint = process_state_dict(torch.load(ckpt_path, map_location=args.device, weights_only=True))
@@ -34,12 +35,22 @@ class EvalWGAN_GP:
         self.model.eval()
         self.vq_wrapper.eval()
 
-        self.evaluate()
+        self.evaluate(args)
 
-    def evaluate(self):
-        (dataloader, _, test_dataloader), means, stds = get_data(self.args, use_val_split=True)
-        _, _, test_indices = get_data_split_indices(self.args, use_val_split=True)
-        orig_indices = np.load("../data/new/nonv/index_5666.npy")
+    def evaluate(self, args):
+        (dataloader, _, test_dataloader), _, _ = get_data(args, use_val_split=True)
+        _, _, test_indices = get_data_split_indices(args, use_val_split=True)
+        if getattr(args, "load_from_hf", False):
+            repo_id = getattr(args, "repo_id", "IDEALLab/MTO-2D")
+            index_file = hf_hub_download(
+                repo_id=repo_id,
+                filename=getattr(args, "hf_index_path", "index_5666.npy"),
+                repo_type="dataset"
+            )
+        else:
+            index_file = "../data/new/nonv/index_5666.npy"
+
+        orig_indices = np.load(index_file)
 
         all_generated = []
         all_real_eval = []
@@ -53,22 +64,19 @@ class EvalWGAN_GP:
         solid_counts = []
         solid_counts_real = []
 
-        vf_mean = means[2]
-        vf_std = stds[2]
-
         print("Loading training data for evaluation...")
         with torch.no_grad():
             for imgs, cond in dataloader:
-                imgs = imgs.to(self.args.device, non_blocking=True)
+                imgs = imgs.to(args.device, non_blocking=True)
                 imgs = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
                 all_real_train.append(imgs)
         print("Completed loading training data for evaluation.")
 
         with torch.no_grad():
             for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Evaluating WGAN-GP")):
-                sample_imgs = imgs.to(self.args.device)
-                sample_c = cond.to(self.args.device)
-                if self.args.gan_use_cvq:
+                sample_imgs = imgs.to(args.device)
+                sample_c = cond.to(args.device)
+                if args.gan_use_cvq:
                     sample_c = self.vq_wrapper.c_encode(sample_c)
                     sample_c = sample_c.view(sample_c.shape[0], -1)
 
@@ -77,7 +85,7 @@ class EvalWGAN_GP:
                 recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
 
                 # Generate fake samples
-                z = torch.randn(sample_imgs.shape[0], self.args.latent_dim, device=self.args.device)
+                z = torch.randn(sample_imgs.shape[0], args.latent_dim, device=args.device)
                 gen_latents = self.model(z, sample_c)
                 fake_imgs = self.vq_wrapper.decode(gen_latents).clamp(0, 1)
                 
@@ -88,7 +96,7 @@ class EvalWGAN_GP:
 
                 # Save individual gamma files with original indexing (like transformer)
                 for j in range(full_sample.shape[0]):
-                    test_index = i * self.args.batch_size + j
+                    test_index = i * args.batch_size + j
                     original_index = orig_indices[test_indices[test_index]]
                     gamma_tensor = full_sample[j, 0]
                     npy_to_gamma(gamma_tensor, path=self.results_dir, name=f"gamma_{original_index}")
@@ -149,7 +157,7 @@ class EvalWGAN_GP:
         avg_disconnected = np.mean(component_counts) - 1
         sse = np.mean(np.abs(solid_counts - solid_counts_real) / solid_counts_real)
 
-        print(f"\nWGAN-GP Evaluation:")
+        print("\nWGAN-GP Evaluation:")
         print(f"  Volume Fraction MAE:     {vf_mae:.6f}")
         print(f"  Avg # Disconnected Fluid Segments: {avg_disconnected:.6f}")
         print(f"  MMD:                     {mmd:.6f}")

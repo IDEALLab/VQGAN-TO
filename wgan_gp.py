@@ -104,7 +104,8 @@ class Generator(nn.Module):
             args.c_transform_dim
         )
 
-        self.init_size = 8  # 8×8 -> 16×16
+        assert vq_args.image_size >= 32, "Image size should be at least 32x32"
+        self.init_size = vq_args.image_size//32  # 8×8 -> 16×16
         high = self.latent_dim * 4
         mid = self.latent_dim * 2
 
@@ -143,10 +144,10 @@ class Discriminator(nn.Module):
         in_channels = self.latent_dim + 1
         base = self.latent_dim  # Stronger discriminator base
 
-        self.c_transform_dim = args.c_transform_dim
+        self.c_transform_dim = vq_args.decoder_start_resolution ** 2
         self.condition_proj = nn.Linear(
             cvq_args.c_latent_dim * cvq_args.c_fmap_dim ** 2 if args.gan_use_cvq else args.c_input_dim,
-            args.c_transform_dim
+            self.c_transform_dim
         )
 
         # Discriminator ResNet stack (no norm): two Down blocks + two plain blocks
@@ -175,7 +176,9 @@ class VQGANLatentWrapper(nn.Module):
         super().__init__()
         temp_args = deepcopy(args)
         temp_args.is_gan = False
-        self.vqgan = load_vqgan(load_args(temp_args)).eval()
+        vq_args = load_args(temp_args)
+        self.vq_args = vq_args
+        self.vqgan = load_vqgan(vq_args).eval()
         for param in self.vqgan.parameters():
             param.requires_grad = False
 

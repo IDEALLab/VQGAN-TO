@@ -209,4 +209,3 @@ class FeaturePool():
                 self.features[random_id[:features.size(0)]] = features
 
         return self.features
-

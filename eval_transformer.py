@@ -206,7 +206,7 @@ class EvalTransformer:
     def _create_test_gammas(self, test_dataloader, test_indices, orig_indices, test_gammas_dir, args, round_output=False):
         """Create gamma files for the test set"""
         with torch.no_grad():
-            for i, (imgs, cond) in enumerate(tqdm(test_dataloader, desc="Converting test set to gammas")):
+            for i, (imgs, _) in enumerate(tqdm(test_dataloader, desc="Converting test set to gammas")):
                 imgs = imgs.to(args.device, non_blocking=True)
                 original = mirror(imgs, reshape=(400, 400)).clamp(0, 1).cpu().numpy()
                 if round_output:

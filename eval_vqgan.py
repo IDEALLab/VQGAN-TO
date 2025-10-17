@@ -99,7 +99,7 @@ class EvalVQGAN:
         # avg_lpips = np.mean(metrics['lpips'])
         avg_grey_lpips = np.mean(metrics['grey_lpips'])
         
-        print(f"Evaluation Results:")
+        print("Evaluation Results:")
         print(f"Average MSE: {avg_mse:.6f}")
         print(f"Average MAE: {avg_mae:.6f}")
         # print(f"Average LPIPS: {avg_lpips:.6f}")
@@ -178,7 +178,6 @@ class EvalVQGAN:
         # Plot codebook usage distribution
         plt.figure(figsize=(12, 6))
         sorted_usage = sorted(codebook_usage_pct.items(), key=lambda x: x[1], reverse=True)
-        indices_sorted = [i for i, _ in sorted_usage]
         values_sorted = [v for _, v in sorted_usage]
 
         plt.bar(range(len(values_sorted)), values_sorted)

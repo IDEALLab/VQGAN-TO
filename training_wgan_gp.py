@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image, make_grid
-from lpips import GreyscaleLPIPS
 
 from wgan_gp import Generator, Discriminator, compute_gradient_penalty, VQGANLatentWrapper
 from utils import get_data, set_precision, set_all_seeds, safe_compile
@@ -58,8 +57,7 @@ class TrainWGAN_GP:
         self.train()
 
     def train(self):
-        lpips = GreyscaleLPIPS().to(self.device)
-        (dataloader, val_dataloader, _), means, stds = get_data(self.args, use_val_split=True)
+        (dataloader, val_dataloader, _), _, _ = get_data(self.args, use_val_split=True)
 
         for epoch in tqdm(range(self.args.epochs)):
             train_d_losses, train_g_losses = [], []
@@ -72,7 +70,6 @@ class TrainWGAN_GP:
                     c = self.vq_wrapper.c_encode(c)
                     c = c.view(c.shape[0], -1)
 
-                batch_size = imgs.shape[0]
                 real_latents = self.vq_wrapper.encode(imgs)
                 # Get real image reconstructions for comparison
                 recon_imgs = self.vq_wrapper.decode(real_latents).clamp(0, 1)
@@ -140,7 +137,6 @@ class TrainWGAN_GP:
                     val_l1_losses.append(val_l1_loss.item())
 
             val_l1_avg = sum(val_l1_losses) / len(val_l1_losses)
-            print(val_l1_avg)
             self.losses['val_l1_loss'].append(val_l1_avg)
 
             np.save(os.path.join(self.results_dir, "loss.npy"), np.array([self.losses[k] for k in self.losses]))
