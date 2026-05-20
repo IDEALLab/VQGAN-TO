@@ -104,12 +104,11 @@ We can also leverage the VQGAN codebook to train a small GPT-2 model, generating
 
 ## Citation
 ```bibtex
-@inproceedings{drake2024quantize,
-  title={To Quantize or Not to Quantize: Effects on Generative Models for 2D Heat Sink Design},
-  author={Drake, Arthur and Wang, Jun and Chen, Qiuyi and Nejat, Ardalan and Guest, James and Fuge, Mark},
-  booktitle={International Design Engineering Technical Conferences and Computers and Information in Engineering Conference},
-  volume={88360},
-  pages={V03AT03A017},
-  year={2024},
-  organization={American Society of Mechanical Engineers}
+@article{drake2026quantize,
+  title={To Quantize or Not to Quantize: Effects on Generative Models for Topology Optimization Problems},
+  author={Drake, Arthur and Chen, Qiuyi and Wang, Jun and Nejat, Ardalan and Guest, James K and Fuge, Mark},
+  journal={Journal of Mechanical Design},
+  pages={1--27},
+  year={2026}
 }
+```
